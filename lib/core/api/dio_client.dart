@@ -61,10 +61,9 @@ class DioClient {
   Dio get dio => _dio;
 
   String _getBaseUrl() {
-    if (kIsWeb)
-      return 'http://157.173.96.160:3070'; // FIX: Point to the actual VPS and port
+    if (kIsWeb) return 'https://rodlapi.mohammad-abujalboush.com';
     if (defaultTargetPlatform == TargetPlatform.android)
-      return 'http://157.173.96.160:3070';
-    return 'http://157.173.96.160:3070'; // Fallback
+      return 'http://157.173.96.160:3070'; // Android can still use the raw IP for testing
+    return 'https://rodlapi.mohammad-abujalboush.com'; // Fallback
   }
 }
