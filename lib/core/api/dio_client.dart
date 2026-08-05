@@ -61,9 +61,10 @@ class DioClient {
   Dio get dio => _dio;
 
   String _getBaseUrl() {
-    if (kIsWeb) return 'http://localhost:5225';
+    if (kIsWeb)
+      return 'http://157.173.96.160:3070'; // FIX: Point to the actual VPS and port
     if (defaultTargetPlatform == TargetPlatform.android)
-      return 'http://10.0.2.2:5225';
-    return 'http://localhost:5225';
+      return 'http://157.173.96.160:3070';
+    return 'http://157.173.96.160:3070'; // Fallback
   }
 }

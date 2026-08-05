@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import '../../../../core/api/dio_client.dart';
 import '../../../../core/api/secure_storage_helper.dart';
 import '../../../../core/api/signalr_client.dart';
@@ -15,7 +14,7 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<bool> login(String email, String password) async {
     try {
       final response = await _dioClient.dio.post(
-        '/api/auth/login',
+        '/api/auth/admin-login',
         data: {'email': email, 'password': password},
       );
 
