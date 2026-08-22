@@ -73,11 +73,8 @@ class _DashboardSidebar extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.business_center,
-                  color: theme.primaryColor,
-                  size: 40,
-                ),
+                // --- UPGRADED SIDEBAR LOGO ---
+                Image.asset('assets/images/app-icon.jpeg', height: 40),
                 const SizedBox(height: 12),
                 Text(
                   'Rodl Admin',

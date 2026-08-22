@@ -8,4 +8,5 @@ abstract class AdminRepository {
     Map<String, dynamic> overrideData,
   );
   Future<bool> createPricingRule(PricingRuleModel newRule);
+  Future<bool> deletePricingRule(String id);
 }

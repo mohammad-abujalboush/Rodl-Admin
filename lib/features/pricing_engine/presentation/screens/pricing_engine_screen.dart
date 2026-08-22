@@ -59,16 +59,18 @@ class _PricingEngineScreenState extends State<PricingEngineScreen> {
                     buildWhen: (prev, current) =>
                         current is PricingLoaded || current is PricingLoading,
                     builder: (context, state) {
-                      if (state is PricingLoading)
+                      if (state is PricingLoading) {
                         return const Center(child: CircularProgressIndicator());
+                      }
                       if (state is PricingLoaded) {
-                        if (state.rules.isEmpty)
+                        if (state.rules.isEmpty) {
                           return const Center(
                             child: Text(
                               'No pricing architectures defined.',
                               style: TextStyle(color: Colors.grey),
                             ),
                           );
+                        }
 
                         return GridView.builder(
                           gridDelegate:
@@ -113,7 +115,7 @@ class _PricingEngineScreenState extends State<PricingEngineScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Control algorithmic base fares, distance overages, and situational surcharges for the entire fleet.',
+          'Manage starting prices, per-kilometer fees, and extra charges for all services.',
           style: TextStyle(color: theme.disabledColor),
         ),
       ],
@@ -302,9 +304,9 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
       final r = widget.existingRule!;
       _nameCtrl.text = r.ruleName;
       _descCtrl.text = r.description;
-
-      // FIX: If the DB sends 0 (unmapped), force it to default to 1 so the UI doesn't crash
-      _serviceType = [1, 2, 3].contains(r.serviceType) ? r.serviceType : 1;
+      _serviceType = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].contains(r.serviceType)
+          ? r.serviceType
+          : 1;
 
       _baseFareCtrl.text = r.baseFare.toString();
       _incDistCtrl.text = r.includedDistanceKm.toString();
@@ -317,10 +319,10 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
       _waitRateMinCtrl.text = r.waitingRatePerMinute.toString();
       _cancelFeeCtrl.text = r.cancellationFee.toString();
 
-      _afterHoursCtrl.text = r.afterHoursSurcharge.toString();
-      _holidayCtrl.text = r.holidaySurcharge.toString();
-      _duallyCtrl.text = r.duallySurcharge.toString();
-      _multiTruckCtrl.text = r.multiTruckSurcharge.toString();
+      _afterHoursCtrl.text = r.afterHoursSurcharge?.toString() ?? '';
+      _holidayCtrl.text = r.holidaySurcharge?.toString() ?? '';
+      _duallyCtrl.text = r.duallySurcharge?.toString() ?? '';
+      _multiTruckCtrl.text = r.multiTruckSurcharge?.toString() ?? '';
     }
   }
 
@@ -348,8 +350,8 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
               children: [
                 Text(
                   widget.isNew
-                      ? 'Compile Pricing Architecture'
-                      : 'Edit Matrix: ${_nameCtrl.text}',
+                      ? 'Add New Pricing Rule'
+                      : 'Edit Pricing: ${_nameCtrl.text}',
                   style: theme.textTheme.headlineSmall?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -371,7 +373,7 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
                   child: TextFormField(
                     controller: _nameCtrl,
                     decoration: InputDecoration(
-                      labelText: 'Rule Identifier Name *',
+                      labelText: 'Pricing Rule Name *',
                       filled: true,
                       fillColor: theme.cardColor,
                       border: const OutlineInputBorder(),
@@ -387,24 +389,23 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
                     value: _serviceType,
                     dropdownColor: theme.cardColor,
                     decoration: InputDecoration(
-                      labelText: 'Target Asset / Service Class',
+                      labelText: 'Target Service Type',
                       filled: true,
                       fillColor: theme.cardColor,
                       border: const OutlineInputBorder(),
                     ),
                     items: const [
-                      // --- TOWING SERVICES ---
                       DropdownMenuItem(
                         value: 1,
                         child: Text(
-                          'Wheel Lift Towing (Light Duty)',
+                          'Wheel Lift Towing',
                           style: TextStyle(color: Colors.white),
                         ),
                       ),
                       DropdownMenuItem(
                         value: 2,
                         child: Text(
-                          'Flatbed Carrier (Standard)',
+                          'Flatbed Carrier',
                           style: TextStyle(color: Colors.white),
                         ),
                       ),
@@ -425,12 +426,10 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
                       DropdownMenuItem(
                         value: 5,
                         child: Text(
-                          'Motorcycle Towing / Specialty',
+                          'Motorcycle Towing',
                           style: TextStyle(color: Colors.white),
                         ),
                       ),
-
-                      // --- ROADSIDE ASSISTANCE (Light Service Vehicles) ---
                       DropdownMenuItem(
                         value: 6,
                         child: Text(
@@ -459,8 +458,6 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
                           style: TextStyle(color: Colors.white),
                         ),
                       ),
-
-                      // --- SPECIALTY RECOVERY ---
                       DropdownMenuItem(
                         value: 10,
                         child: Text(
@@ -471,7 +468,7 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
                     ],
                     onChanged: widget.isNew
                         ? (v) => setState(() => _serviceType = v!)
-                        : null, // Prevent changing type on existing rules
+                        : null,
                   ),
                 ),
               ],
@@ -480,7 +477,7 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
             TextFormField(
               controller: _descCtrl,
               decoration: InputDecoration(
-                labelText: 'Rule Description & Operational Notes',
+                labelText: 'Description & Notes',
                 filled: true,
                 fillColor: theme.cardColor,
                 border: const OutlineInputBorder(),
@@ -496,9 +493,9 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
               unselectedLabelColor: Colors.grey,
               indicatorColor: theme.primaryColor,
               tabs: const [
-                Tab(text: 'Core Transport Rates'),
-                Tab(text: 'Recovery & Waiting Penalties'),
-                Tab(text: 'Conditional Surcharges'),
+                Tab(text: 'Standard Fees'),
+                Tab(text: 'Wait & Recovery Fees'),
+                Tab(text: 'Optional Extra Fees'),
               ],
             ),
             const SizedBox(height: 24),
@@ -514,17 +511,41 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
             ),
             const Divider(height: 32),
             Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-                const SizedBox(width: 16),
-                FilledButton.icon(
-                  icon: const Icon(Icons.save),
-                  label: const Text('Burn Matrix to Database'),
-                  onPressed: _saveRule,
+                if (!widget.isNew)
+                  TextButton.icon(
+                    onPressed: () {
+                      widget.bloc.add(
+                        DeletePricingRule(widget.existingRule!.id),
+                      );
+                      Navigator.pop(context);
+                    },
+                    icon: const Icon(
+                      Icons.delete_forever,
+                      color: Colors.redAccent,
+                    ),
+                    label: const Text(
+                      'Delete Rule',
+                      style: TextStyle(color: Colors.redAccent),
+                    ),
+                  )
+                else
+                  const SizedBox.shrink(),
+
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 16),
+                    FilledButton.icon(
+                      icon: const Icon(Icons.save),
+                      label: const Text('Save Pricing Rule'),
+                      onPressed: _saveRule,
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -537,10 +558,30 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
   Widget _buildCoreRatesTab(ThemeData theme) {
     return ListView(
       children: [
-        _buildCurrencyInput('Base Fare Trigger (\$)', _baseFareCtrl, theme),
-        _buildNumericInput('Included Free Distance (KM)', _incDistCtrl, theme),
-        _buildCurrencyInput('Distance Rate (\$ per KM)', _rateKmCtrl, theme),
-        _buildCurrencyInput('Cancellation Penalty (\$)', _cancelFeeCtrl, theme),
+        _buildCurrencyInput(
+          'Starting Base Fare (\$)',
+          _baseFareCtrl,
+          theme,
+          isRequired: true,
+        ),
+        _buildNumericInput(
+          'Free Kilometers Included',
+          _incDistCtrl,
+          theme,
+          isRequired: true,
+        ),
+        _buildCurrencyInput(
+          'Per-Kilometer Extra Fee (\$)',
+          _rateKmCtrl,
+          theme,
+          isRequired: true,
+        ),
+        _buildCurrencyInput(
+          'Cancellation Penalty Fee (\$)',
+          _cancelFeeCtrl,
+          theme,
+          isRequired: true,
+        ),
       ],
     );
   }
@@ -548,27 +589,36 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
   Widget _buildRecoveryTab(ThemeData theme) {
     return ListView(
       children: [
-        _buildCurrencyInput('Recovery Base Rate (\$)', _recBaseCtrl, theme),
+        _buildCurrencyInput(
+          'Winching / Off-Road Base Fee (\$)',
+          _recBaseCtrl,
+          theme,
+          isRequired: true,
+        ),
         _buildNumericInput(
-          'Included Recovery Time (Minutes)',
+          'Free Winching Time (Minutes)',
           _recIncMinCtrl,
           theme,
+          isRequired: true,
         ),
         _buildCurrencyInput(
-          'Recovery Overage Rate (\$ per Minute)',
+          'Extra Winching Time Fee (\$ / Min)',
           _recRateMinCtrl,
           theme,
+          isRequired: true,
         ),
         const Divider(height: 32),
         _buildNumericInput(
-          'Driver Free Wait Time (Minutes)',
+          'Free Waiting Time for Driver (Minutes)',
           _waitFreeMinCtrl,
           theme,
+          isRequired: true,
         ),
         _buildCurrencyInput(
-          'Wait Penalty Rate (\$ per Minute)',
+          'Driver Waiting Fee (\$ / Min)',
           _waitRateMinCtrl,
           theme,
+          isRequired: true,
         ),
       ],
     );
@@ -577,17 +627,29 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
   Widget _buildSurchargesTab(ThemeData theme) {
     return ListView(
       children: [
-        _buildCurrencyInput('After Hours Premium (\$)', _afterHoursCtrl, theme),
         _buildCurrencyInput(
-          'Statutory Holiday Premium (\$)',
+          'Night / After-Hours Extra Fee (\$)',
+          _afterHoursCtrl,
+          theme,
+          isRequired: false,
+        ),
+        _buildCurrencyInput(
+          'Holiday Extra Fee (\$)',
           _holidayCtrl,
           theme,
+          isRequired: false,
         ),
-        _buildCurrencyInput('Dually/Heavy Surcharge (\$)', _duallyCtrl, theme),
         _buildCurrencyInput(
-          'Multi-Truck Coordination (\$)',
+          'Heavy Vehicle Extra Fee (\$)',
+          _duallyCtrl,
+          theme,
+          isRequired: false,
+        ),
+        _buildCurrencyInput(
+          'Multiple Trucks Extra Fee (\$)',
           _multiTruckCtrl,
           theme,
+          isRequired: false,
         ),
       ],
     );
@@ -596,8 +658,9 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
   Widget _buildCurrencyInput(
     String label,
     TextEditingController ctrl,
-    ThemeData theme,
-  ) {
+    ThemeData theme, {
+    required bool isRequired,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: TextFormField(
@@ -613,7 +676,7 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
         ),
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         style: const TextStyle(color: Colors.white),
-        validator: (v) => v!.isEmpty ? 'Required' : null,
+        validator: isRequired ? (v) => v!.isEmpty ? 'Required' : null : null,
       ),
     );
   }
@@ -621,8 +684,9 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
   Widget _buildNumericInput(
     String label,
     TextEditingController ctrl,
-    ThemeData theme,
-  ) {
+    ThemeData theme, {
+    required bool isRequired,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: TextFormField(
@@ -637,7 +701,7 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
         ),
         keyboardType: TextInputType.number,
         style: const TextStyle(color: Colors.white),
-        validator: (v) => v!.isEmpty ? 'Required' : null,
+        validator: isRequired ? (v) => v!.isEmpty ? 'Required' : null : null,
       ),
     );
   }
@@ -645,9 +709,7 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
   void _saveRule() {
     if (_formKey.currentState!.validate()) {
       final rule = PricingRuleModel(
-        id:
-            widget.existingRule?.id ??
-            '', // Backend will override this on creation
+        id: widget.existingRule?.id ?? '',
         ruleName: _nameCtrl.text,
         description: _descCtrl.text,
         serviceType: _serviceType,
@@ -661,10 +723,12 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
         freeWaitingTimeMinutes: int.parse(_waitFreeMinCtrl.text),
         waitingRatePerMinute: double.parse(_waitRateMinCtrl.text),
         cancellationFee: double.parse(_cancelFeeCtrl.text),
-        afterHoursSurcharge: double.parse(_afterHoursCtrl.text),
-        holidaySurcharge: double.parse(_holidayCtrl.text),
-        duallySurcharge: double.parse(_duallyCtrl.text),
-        multiTruckSurcharge: double.parse(_multiTruckCtrl.text),
+
+        afterHoursSurcharge: double.tryParse(_afterHoursCtrl.text),
+        holidaySurcharge: double.tryParse(_holidayCtrl.text),
+        duallySurcharge: double.tryParse(_duallyCtrl.text),
+        multiTruckSurcharge: double.tryParse(_multiTruckCtrl.text),
+
         isActive: true,
       );
 

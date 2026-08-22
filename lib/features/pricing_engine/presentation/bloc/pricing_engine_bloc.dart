@@ -20,6 +20,13 @@ class SavePricingRule extends PricingEngineEvent {
   List<Object> get props => [rule, isNew];
 }
 
+class DeletePricingRule extends PricingEngineEvent {
+  final String id;
+  DeletePricingRule(this.id);
+  @override
+  List<Object> get props => [id];
+}
+
 // --- STATES ---
 abstract class PricingEngineState extends Equatable {
   @override
@@ -63,7 +70,7 @@ class PricingEngineBloc extends Bloc<PricingEngineEvent, PricingEngineState> {
             .toList();
         emit(PricingLoaded(rules));
       } catch (e) {
-        emit(PricingError('Failed to fetch pricing architecture.'));
+        emit(PricingError('Failed to fetch pricing architectures.'));
       }
     });
 
@@ -90,6 +97,18 @@ class PricingEngineBloc extends Bloc<PricingEngineEvent, PricingEngineState> {
           PricingError(
             e.response?.data['message'] ?? 'Failed to update matrix.',
           ),
+        );
+      }
+    });
+
+    on<DeletePricingRule>((event, emit) async {
+      try {
+        await dioClient.dio.delete('/api/admin/pricing-rules/${event.id}');
+        emit(PricingActionSuccess('Pricing rule securely deleted.'));
+        add(FetchPricingRules());
+      } on DioException catch (e) {
+        emit(
+          PricingError(e.response?.data['message'] ?? 'Failed to delete rule.'),
         );
       }
     });

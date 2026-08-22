@@ -73,10 +73,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Icon(Icons.shield, size: 64, color: theme.primaryColor),
+                      // --- UPGRADED LOGO INJECTION ---
+                      Image.asset(
+                        'assets/images/app-icon.jpeg',
+                        height: 64,
+                        // If your logo is a solid shape and you want it to match the theme color, uncomment the line below:
+                        // color: theme.primaryColor,
+                      ),
                       const SizedBox(height: 16),
                       Text(
-                        'Command Center',
+                        'Rodl Command Center', // --- UPDATED TEXT ---
                         textAlign: TextAlign.center,
                         style: theme.textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.bold,

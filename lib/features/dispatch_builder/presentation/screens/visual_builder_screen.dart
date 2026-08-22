@@ -84,15 +84,17 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
               .toList();
 
           if (node.type == 'condition' && questionNodes.isNotEmpty) {
-            if (!questionNodes.any((q) => q.id == selectedCondQuestionId))
+            if (!questionNodes.any((q) => q.id == selectedCondQuestionId)) {
               selectedCondQuestionId = questionNodes.first.id;
+            }
             final parentQuestion = questionNodes.firstWhere(
               (q) => q.id == selectedCondQuestionId,
             );
-            if (!parentQuestion.options.contains(selectedCondAnswer))
+            if (!parentQuestion.options.contains(selectedCondAnswer)) {
               selectedCondAnswer = parentQuestion.options.isNotEmpty
                   ? parentQuestion.options.first
                   : '';
+            }
           }
 
           // Safety check for dynamic service dropdown
@@ -673,8 +675,9 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
         buildWhen: (prev, current) =>
             current is RulesLoading || current is RulesLoaded,
         builder: (context, state) {
-          if (state is RulesLoading && nodes.isEmpty)
+          if (state is RulesLoading && nodes.isEmpty) {
             return const Center(child: CircularProgressIndicator());
+          }
 
           return Stack(
             children: [
@@ -688,10 +691,73 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                   height: 10000,
                   child: Stack(
                     children: [
+                      // 1. The Line Painter
                       CustomPaint(
                         size: const Size(10000, 10000),
                         painter: EdgePainter(nodes: nodes, edges: edges),
                       ),
+
+                      // 2. --- NEW: DYNAMIC EDGE DELETION BUTTONS ---
+                      ...edges.map((edge) {
+                        final fromNode = nodes.cast<DispatchNode?>().firstWhere(
+                          (n) => n?.id == edge.fromNodeId,
+                          orElse: () => null,
+                        );
+                        final toNode = nodes.cast<DispatchNode?>().firstWhere(
+                          (n) => n?.id == edge.toNodeId,
+                          orElse: () => null,
+                        );
+
+                        if (fromNode == null || toNode == null)
+                          return const SizedBox.shrink();
+
+                        // Calculate the exact midpoint of the Bezier curve
+                        final startX = fromNode.x + 200;
+                        final startY = fromNode.y + 50;
+                        final endX = toNode.x;
+                        final endY = toNode.y + 50;
+
+                        final midX = (startX + endX) / 2;
+                        final midY = (startY + endY) / 2;
+
+                        return Positioned(
+                          left: midX - 16, // Center the 32x32 button
+                          top: midY - 16,
+                          child: InkWell(
+                            onTap: () {
+                              setState(() {
+                                edges.remove(edge);
+                              });
+                            },
+                            child: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 2,
+                                ),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Colors.black54,
+                                    blurRadius: 4,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.close,
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+
+                      // 3. The Draggable Nodes
                       ...nodes.map((node) {
                         return Positioned(
                           left: node.x,
@@ -777,13 +843,14 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                     current is RulesHistoryLoaded || current is RulesLoading,
                 builder: (context, state) {
                   if (state is RulesHistoryLoaded) {
-                    if (state.history.isEmpty)
+                    if (state.history.isEmpty) {
                       return const Center(
                         child: Text(
                           'No version records found.',
                           style: TextStyle(color: Colors.grey),
                         ),
                       );
+                    }
 
                     return ListView.separated(
                       padding: const EdgeInsets.all(16),
@@ -923,13 +990,14 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                         ),
                       ),
                       const SizedBox(width: 8),
+                      // --- UPGRADED CLOSE ICON ---
                       if (node.id != 'start_node')
                         InkWell(
                           onTap: () => _deleteNode(node.id),
                           child: const Icon(
                             Icons.close,
-                            size: 16,
-                            color: Colors.redAccent,
+                            size: 18,
+                            color: Colors.white,
                           ),
                         ),
                     ],

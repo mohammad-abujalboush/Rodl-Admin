@@ -34,7 +34,7 @@ class AdminDashboardApp extends StatelessWidget {
         valueListenable: AppTheme.themeNotifier,
         builder: (context, currentTheme, _) {
           return MaterialApp.router(
-            title: 'Roadside Admin Control',
+            title: 'Rodl Admin Control',
             debugShowCheckedModeBanner: false,
 
             // --- ROUTING ---

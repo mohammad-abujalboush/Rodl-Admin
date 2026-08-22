@@ -13,10 +13,14 @@ class PricingRuleModel {
   final int freeWaitingTimeMinutes;
   final double waitingRatePerMinute;
   final double cancellationFee;
-  final double afterHoursSurcharge;
-  final double holidaySurcharge;
-  final double duallySurcharge;
-  final double multiTruckSurcharge;
+
+  // --- UPGRADED: Surcharges are now optional (nullable) ---
+  final double? afterHoursSurcharge;
+  final double? holidaySurcharge;
+  final double? duallySurcharge;
+  final double? multiTruckSurcharge;
+  final double? manualAdditionSurcharge;
+
   final bool isActive;
 
   PricingRuleModel({
@@ -34,10 +38,11 @@ class PricingRuleModel {
     required this.freeWaitingTimeMinutes,
     required this.waitingRatePerMinute,
     required this.cancellationFee,
-    required this.afterHoursSurcharge,
-    required this.holidaySurcharge,
-    required this.duallySurcharge,
-    required this.multiTruckSurcharge,
+    this.afterHoursSurcharge,
+    this.holidaySurcharge,
+    this.duallySurcharge,
+    this.multiTruckSurcharge,
+    this.manualAdditionSurcharge,
     required this.isActive,
   });
 
@@ -57,10 +62,21 @@ class PricingRuleModel {
       freeWaitingTimeMinutes: json['freeWaitingTimeMinutes'] ?? 0,
       waitingRatePerMinute: (json['waitingRatePerMinute'] ?? 0).toDouble(),
       cancellationFee: (json['cancellationFee'] ?? 0).toDouble(),
-      afterHoursSurcharge: (json['afterHoursSurcharge'] ?? 0).toDouble(),
-      holidaySurcharge: (json['holidaySurcharge'] ?? 0).toDouble(),
-      duallySurcharge: (json['duallySurcharge'] ?? 0).toDouble(),
-      multiTruckSurcharge: (json['multiTruckSurcharge'] ?? 0).toDouble(),
+      afterHoursSurcharge: json['afterHoursSurcharge'] != null
+          ? (json['afterHoursSurcharge'] as num).toDouble()
+          : null,
+      holidaySurcharge: json['holidaySurcharge'] != null
+          ? (json['holidaySurcharge'] as num).toDouble()
+          : null,
+      duallySurcharge: json['duallySurcharge'] != null
+          ? (json['duallySurcharge'] as num).toDouble()
+          : null,
+      multiTruckSurcharge: json['multiTruckSurcharge'] != null
+          ? (json['multiTruckSurcharge'] as num).toDouble()
+          : null,
+      manualAdditionSurcharge: json['manualAdditionSurcharge'] != null
+          ? (json['manualAdditionSurcharge'] as num).toDouble()
+          : null,
       isActive: json['isActive'] ?? true,
     );
   }
@@ -84,6 +100,7 @@ class PricingRuleModel {
       'holidaySurcharge': holidaySurcharge,
       'duallySurcharge': duallySurcharge,
       'multiTruckSurcharge': multiTruckSurcharge,
+      'manualAdditionSurcharge': manualAdditionSurcharge,
     };
   }
 

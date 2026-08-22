@@ -69,4 +69,16 @@ class AdminRepositoryImpl implements AdminRepository {
       throw Exception('Failed to override job pricing: $e');
     }
   }
+
+  @override
+  Future<bool> deletePricingRule(String id) async {
+    try {
+      final response = await _dioClient.dio.delete(
+        '/api/admin/pricing-rules/$id',
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      throw Exception('Failed to delete pricing rule: $e');
+    }
+  }
 }
