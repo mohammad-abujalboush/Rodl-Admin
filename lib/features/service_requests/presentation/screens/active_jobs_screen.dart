@@ -1380,6 +1380,10 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
   late TextEditingController _locCtrl;
   late int _editServiceType;
   late int _editStatus;
+
+  late int _lastKnownStatus;
+  late int _lastKnownServiceType;
+
   late TextEditingController _baseCtrl;
   late TextEditingController _distCtrl;
   late TextEditingController _waitCtrl;
@@ -1415,6 +1419,10 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
         : 1;
 
     _editStatus = widget.job.status;
+
+    _lastKnownStatus = widget.job.status;
+    _lastKnownServiceType = widget.job.serviceType;
+
     _baseCtrl = TextEditingController(text: widget.job.baseFare.toString());
     _distCtrl = TextEditingController(text: widget.job.distanceFee.toString());
     _waitCtrl = TextEditingController(text: widget.job.waitPenalty.toString());
@@ -1461,6 +1469,17 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
             currentJob = state.jobs.firstWhere(
               (j) => j.requestId == widget.job.requestId,
             );
+
+            if (currentJob.status != _lastKnownStatus) {
+              _editStatus = currentJob.status;
+              _lastKnownStatus = currentJob.status;
+            }
+            if (currentJob.serviceType != _lastKnownServiceType) {
+              _editServiceType = [1, 2, 3].contains(currentJob.serviceType)
+                  ? currentJob.serviceType
+                  : 1;
+              _lastKnownServiceType = currentJob.serviceType;
+            }
           } catch (e) {
             // Job voided
           }
@@ -1590,7 +1609,6 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
                 const SizedBox(height: 16),
                 _buildProfileAccordion(
                   role: 'Assigned Fleet Driver',
-                  // Ensure empty UI strings fallback to "Unassigned" appropriately
                   name: currentJob.driverName.isEmpty
                       ? "Unassigned"
                       : currentJob.driverName,
