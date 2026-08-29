@@ -1,3 +1,4 @@
+// lib/features/dispatch/presentation/screens/active_jobs_screen.dart
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -1081,7 +1082,6 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
         ),
         const SizedBox(height: 16),
 
-        // REPLACED DEPRECATED RadioListTile WITH MODERN SegmentedButton
         SizedBox(
           width: double.infinity,
           child: SegmentedButton<bool>(
@@ -1410,7 +1410,6 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
     _vehCtrl = TextEditingController(text: widget.job.vehicleDetails);
     _locCtrl = TextEditingController(text: widget.job.locationCondition);
 
-    // FIX: Add the same safety net here
     _editServiceType = [1, 2, 3].contains(widget.job.serviceType)
         ? widget.job.serviceType
         : 1;
@@ -1591,7 +1590,10 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
                 const SizedBox(height: 16),
                 _buildProfileAccordion(
                   role: 'Assigned Fleet Driver',
-                  name: currentJob.driverName,
+                  // Ensure empty UI strings fallback to "Unassigned" appropriately
+                  name: currentJob.driverName.isEmpty
+                      ? "Unassigned"
+                      : currentJob.driverName,
                   phone: 'System Managed Routing',
                   extraDetails: {
                     'Est. Distance':
@@ -1604,7 +1606,7 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
                   crmAction: () => ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        'Opening Driver management portal for ${currentJob.driverName}...',
+                        'Opening Driver management portal for ${currentJob.driverName.isEmpty ? "Unknown" : currentJob.driverName}...',
                       ),
                     ),
                   ),

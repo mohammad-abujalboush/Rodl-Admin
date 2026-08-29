@@ -1,3 +1,4 @@
+// lib/features/dispatch/presentation/screens/driver_management_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -255,7 +256,6 @@ class _DriverManagementViewState extends State<_DriverManagementView>
     );
   }
 
-  // --- ACTIVE FLEET TAB ---
   Widget _buildActiveFleetTab(
     List<FleetDriverModel> activeFleet,
     ThemeData theme,
@@ -435,7 +435,6 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
-                            // AGORA CALL OPERATOR BUTTON
                             IconButton(
                               icon: const Icon(
                                 Icons.phone_in_talk,
@@ -501,7 +500,6 @@ class _DriverManagementViewState extends State<_DriverManagementView>
     color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
   );
 
-  // --- PENDING APPROVALS TAB ---
   Widget _buildPendingApprovalsTab(
     List<FleetDriverModel> drivers,
     ThemeData theme,
@@ -648,7 +646,6 @@ class _DriverManagementViewState extends State<_DriverManagementView>
     );
   }
 
-  // --- DOSSIER MODAL (ACTIVE DRIVERS) ---
   void _showActiveDriverDossier(
     BuildContext parentContext,
     FleetDriverModel driver,
@@ -968,7 +965,6 @@ class _DriverManagementViewState extends State<_DriverManagementView>
     );
   }
 
-  // --- REVIEW MODAL (PENDING DRIVERS) ---
   void _showReviewDialog(
     BuildContext parentContext,
     FleetDriverModel driver,
@@ -1776,8 +1772,9 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                   'toolPhoneNumber': toolPhoneCtrl.text.trim(),
                                   'email': emailCtrl.text.trim(),
                                   'employeeId': employeeIdCtrl.text.trim(),
-                                  'vehicleMake': selectedMake,
-                                  'vehicleModel': selectedModel,
+                                  // FIX: Adding string fallbacks to prevent backend 400 rejection
+                                  'vehicleMake': selectedMake ?? 'Unknown',
+                                  'vehicleModel': selectedModel ?? 'Unknown',
                                   'vehicleYear': selectedYear,
                                   'fuelType': selectedFuel,
                                   'licensePlate': plateCtrl.text.trim(),
@@ -2281,8 +2278,9 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                   'fullName': nameCtrl.text.trim(),
                                   'phoneNumber': personalPhoneCtrl.text.trim(),
                                   'email': emailCtrl.text.trim(),
-                                  'vehicleMake': selectedMake,
-                                  'vehicleModel': selectedModel,
+                                  // FIX: Adding string fallbacks here too just in case
+                                  'vehicleMake': selectedMake ?? 'Unknown',
+                                  'vehicleModel': selectedModel ?? 'Unknown',
                                   'vehicleYear': selectedYear,
                                   'licensePlate': plateCtrl.text.trim(),
                                   'truckType': truckType,
