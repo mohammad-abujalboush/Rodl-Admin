@@ -83,7 +83,7 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Incident Review & Archive',
+          'Job History',
           style: theme.textTheme.headlineMedium?.copyWith(
             fontWeight: FontWeight.bold,
             color: theme.primaryColor,
@@ -98,7 +98,7 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
                 child: TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    hintText: 'Enter Job Request ID...',
+                    hintText: 'Enter Job ID...',
                     prefixIcon: const Icon(Icons.history),
                     filled: true,
                     fillColor: theme.cardColor,
@@ -116,7 +116,7 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
               const SizedBox(width: 16),
               ElevatedButton.icon(
                 icon: const Icon(Icons.search),
-                label: const Text('Pull Archive'),
+                label: const Text('Search'),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
@@ -161,7 +161,7 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'God View Archive',
+            'Search History',
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.bold,
               color: theme.disabledColor,
@@ -169,7 +169,7 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Enter a Job ID to retrieve the historical status timeline and GPS breadcrumbs.',
+            'Enter a Job ID to see the timeline and GPS map.',
             style: TextStyle(color: theme.disabledColor),
           ),
         ],
@@ -177,12 +177,10 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
     );
   }
 
-  // --- DESKTOP VIEW ---
   Widget _buildDesktopView(IncidentDossierModel dossier, ThemeData theme) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Left Panel: Job Details & Micro-Timeline
         Expanded(
           flex: 1,
           child: Column(
@@ -195,7 +193,6 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
           ),
         ),
         const SizedBox(width: 24),
-        // Right Panel: God View Map Archive
         Expanded(
           flex: 2,
           child: _buildBreadcrumbMapCard(dossier.breadcrumbs, theme),
@@ -204,7 +201,6 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
     );
   }
 
-  // --- MOBILE VIEW ---
   Widget _buildMobileView(IncidentDossierModel dossier, ThemeData theme) {
     return SingleChildScrollView(
       child: Column(
@@ -222,8 +218,6 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
     );
   }
 
-  // --- WIDGET COMPONENTS ---
-
   Widget _buildJobSummaryCard(HistoricalJobModel job, ThemeData theme) {
     final currencyFormat = NumberFormat.currency(symbol: '\$');
     return Card(
@@ -237,7 +231,7 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Archive File: ${job.requestId.substring(0, 8)}',
+                  'Job ID: ${job.requestId.substring(0, 8)}',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 18,
@@ -313,12 +307,12 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Event Micro-Timeline',
+              'Status Timeline',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const SizedBox(height: 16),
             Expanded(
-              flex: isMobile ? 0 : 1, // Let it scroll if inside fixed column
+              flex: isMobile ? 0 : 1,
               child: ListView.builder(
                 shrinkWrap: isMobile,
                 physics: isMobile ? const NeverScrollableScrollPhysics() : null,
@@ -381,14 +375,13 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
         elevation: 2,
         child: Center(
           child: Text(
-            'No GPS data recorded for this incident.',
+            'No GPS map data recorded for this job.',
             style: TextStyle(color: theme.disabledColor),
           ),
         ),
       );
     }
 
-    // Prepare map data
     final polylineCoords = breadcrumbs.map((b) => b.toLatLng()).toList();
     final initialTarget = polylineCoords.isNotEmpty
         ? polylineCoords.first
@@ -446,7 +439,7 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Text(
-                'Historical Breadcrumb Trail',
+                'GPS Route Map',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -470,7 +463,7 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
       case 3:
         return 'Job Completed';
       case 99:
-        return 'Job Voided';
+        return 'Job Cancelled';
       default:
         return 'Status Update ($status)';
     }

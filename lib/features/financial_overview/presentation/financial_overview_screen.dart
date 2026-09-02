@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../data/api_data.dart'; // Ensure this points to your FinancialLedgerService
+import '../data/api_data.dart';
 
 class FinancialOverviewScreen extends StatefulWidget {
   final FinancialLedgerService apiService;
@@ -45,9 +45,8 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
       initialDateRange: _startDate != null && _endDate != null
           ? DateTimeRange(start: _startDate!, end: _endDate!)
           : null,
-      builder: (context, child) {
-        return Theme(data: Theme.of(context), child: child!);
-      },
+      builder: (context, child) =>
+          Theme(data: Theme.of(context), child: child!),
     );
 
     if (picked != null) {
@@ -117,7 +116,7 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
     final dateFmt = DateFormat('MMM dd, yyyy');
     final rangeText = _startDate != null && _endDate != null
         ? '${dateFmt.format(_startDate!)} - ${dateFmt.format(_endDate!)}'
-        : 'All-Time Ledger';
+        : 'All-Time';
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -126,7 +125,7 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Corporate Financial Overview',
+              'Financial Overview',
               style: theme.textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: theme.colorScheme.onSurface,
@@ -134,7 +133,7 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Enterprise tracking for revenue, payables, and outstanding invoices.',
+              'Track your total revenue, pending invoices, and driver payouts.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -158,7 +157,7 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
             const SizedBox(width: 16),
             FilledButton.icon(
               icon: const Icon(Icons.refresh),
-              label: const Text('Sync Ledger'),
+              label: const Text('Refresh Data'),
               onPressed: _refreshAllData,
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(
@@ -177,15 +176,13 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
     return FutureBuilder<Map<String, dynamic>>(
       future: _kpiFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting)
           return const SizedBox(
             height: 120,
             child: Center(child: CircularProgressIndicator()),
           );
-        }
-        if (snapshot.hasError) {
+        if (snapshot.hasError)
           return _buildErrorState('Failed to load KPIs', theme);
-        }
 
         final data = snapshot.data ?? {};
         final totalRevenue = data['totalRevenue'] ?? 0.0;
@@ -198,7 +195,6 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
             final double cardWidth = constraints.maxWidth > 800
                 ? (constraints.maxWidth / 4) - 24
                 : (constraints.maxWidth / 2) - 16;
-
             return Wrap(
               spacing: 24,
               runSpacing: 24,
@@ -206,7 +202,7 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
                 SizedBox(
                   width: cardWidth,
                   child: _buildMetricCard(
-                    title: 'Gross Processed Revenue',
+                    title: 'Total Revenue',
                     value: NumberFormat.currency(
                       symbol: '\$',
                     ).format(totalRevenue),
@@ -218,9 +214,9 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
                 SizedBox(
                   width: cardWidth,
                   child: _buildMetricCard(
-                    title: 'Active Revenue Generation',
+                    title: 'Active Jobs',
                     value: activeTows.toString(),
-                    subtitle: 'Jobs in progress',
+                    subtitle: 'Jobs currently running',
                     icon: Icons.local_shipping,
                     color: Colors.blue,
                     theme: theme,
@@ -229,9 +225,9 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
                 SizedBox(
                   width: cardWidth,
                   child: _buildMetricCard(
-                    title: 'Unrealized Pipeline',
+                    title: 'Pending Jobs',
                     value: unassignedJobs.toString(),
-                    subtitle: 'Jobs pending dispatch',
+                    subtitle: 'Waiting for drivers',
                     icon: Icons.hourglass_empty,
                     color: Colors.orange,
                     theme: theme,
@@ -240,9 +236,9 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
                 SizedBox(
                   width: cardWidth,
                   child: _buildMetricCard(
-                    title: 'SLA Breaches',
+                    title: 'Needs Attention',
                     value: slaBreaches.toString(),
-                    subtitle: 'Requires financial review',
+                    subtitle: 'Jobs delayed or stuck',
                     icon: Icons.warning_amber_rounded,
                     color: theme.colorScheme.error,
                     theme: theme,
@@ -321,57 +317,43 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
 
   Widget _buildAccountsReceivable(ThemeData theme) {
     return _buildSectionContainer(
-      title: 'Accounts Receivable (B2B Invoices)',
+      title: 'Pending Invoices',
       icon: Icons.receipt_long,
       theme: theme,
-      action: TextButton(
-        onPressed: () {
-          // Navigate to full invoices screen
-        },
-        child: const Text('View Ledger'),
-      ),
       child: FutureBuilder<List<dynamic>>(
         future: _invoicesFuture,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (snapshot.connectionState == ConnectionState.waiting)
             return const Padding(
               padding: EdgeInsets.all(32.0),
               child: Center(child: CircularProgressIndicator()),
             );
-          }
-          if (snapshot.hasError) {
+          if (snapshot.hasError)
             return _buildErrorState('Unable to load invoices', theme);
-          }
 
           final invoices = snapshot.data ?? [];
-
-          if (invoices.isEmpty) {
+          if (invoices.isEmpty)
             return _buildEmptyState(
-              'No outstanding or recent invoices found.',
+              'No invoices found.',
               Icons.check_circle_outline,
               theme,
             );
-          }
 
           return ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: invoices.take(5).length, // Show top 5
+            itemCount: invoices.take(5).length,
             separatorBuilder: (_, __) =>
                 Divider(color: theme.dividerColor.withOpacity(0.5)),
             itemBuilder: (context, index) {
               final inv = invoices[index];
-              final statusInt = inv['status'] ?? 0;
-              final amount = inv['totalAmount'] ?? 0.0;
-              final name = inv['recipientName'] ?? 'Unknown Client';
-
               return ListTile(
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 8,
                 ),
                 title: Text(
-                  name,
+                  inv['recipientName'] ?? 'Unknown',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 subtitle: Text(
@@ -382,13 +364,15 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      NumberFormat.currency(symbol: '\$').format(amount),
+                      NumberFormat.currency(
+                        symbol: '\$',
+                      ).format(inv['totalAmount'] ?? 0.0),
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 4),
-                    _buildInvoiceStatusChip(statusInt, theme),
+                    _buildInvoiceStatusChip(inv['status'] ?? 0, theme),
                   ],
                 ),
               );
@@ -401,49 +385,36 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
 
   Widget _buildAccountsPayable(ThemeData theme) {
     return _buildSectionContainer(
-      title: 'Accounts Payable (Driver Payroll)',
+      title: 'Driver Payroll',
       icon: Icons.payments,
       theme: theme,
-      action: TextButton(
-        onPressed: () {
-          // Navigate to Payroll Desk
-        },
-        child: const Text('Open Payroll Desk'),
-      ),
       child: FutureBuilder<List<dynamic>>(
         future: _payrollFuture,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (snapshot.connectionState == ConnectionState.waiting)
             return const Padding(
               padding: EdgeInsets.all(32.0),
               child: Center(child: CircularProgressIndicator()),
             );
-          }
-          if (snapshot.hasError) {
+          if (snapshot.hasError)
             return _buildErrorState('Unable to load pending payroll', theme);
-          }
 
           final payouts = snapshot.data ?? [];
-          if (payouts.isEmpty) {
+          if (payouts.isEmpty)
             return _buildEmptyState(
-              'All drivers are currently paid out.',
+              'All drivers are paid out.',
               Icons.domain_verification,
               theme,
             );
-          }
 
           return ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: payouts.take(5).length, // Show top 5
+            itemCount: payouts.take(5).length,
             separatorBuilder: (_, __) =>
                 Divider(color: theme.dividerColor.withOpacity(0.5)),
             itemBuilder: (context, index) {
               final payout = payouts[index];
-              final driverName = payout['driverName'] ?? 'Unknown';
-              final netOwed = payout['netPayout'] ?? 0.0;
-              final jobs = payout['unpaidJobCount'] ?? 0;
-
               return ListTile(
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -454,12 +425,14 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
                   child: Icon(Icons.person, color: theme.primaryColor),
                 ),
                 title: Text(
-                  driverName,
+                  payout['driverName'] ?? 'Unknown',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                subtitle: Text('$jobs Unpaid Jobs Pending'),
+                subtitle: Text('${payout['unpaidJobCount'] ?? 0} Jobs Pending'),
                 trailing: Text(
-                  NumberFormat.currency(symbol: '\$').format(netOwed),
+                  NumberFormat.currency(
+                    symbol: '\$',
+                  ).format(payout['netPayout'] ?? 0.0),
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: Colors.green.shade700,
@@ -521,8 +494,6 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
   Widget _buildInvoiceStatusChip(int status, ThemeData theme) {
     Color color;
     String label;
-
-    // Assuming standard InvoiceStatus enums: 0 = Unpaid, 1 = Paid, 2 = Overdue, 3 = Cancelled
     switch (status) {
       case 0:
         color = Colors.orange;
@@ -530,7 +501,7 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
         break;
       case 1:
         color = Colors.green;
-        label = 'Settled';
+        label = 'Paid';
         break;
       case 2:
         color = Colors.red;
@@ -540,7 +511,6 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
         color = theme.disabledColor;
         label = 'Void';
     }
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(

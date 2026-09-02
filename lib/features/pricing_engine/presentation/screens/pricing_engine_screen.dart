@@ -24,7 +24,7 @@ class _PricingEngineScreenState extends State<PricingEngineScreen> {
         floatingActionButton: Builder(
           builder: (blocContext) => FloatingActionButton.extended(
             icon: const Icon(Icons.add),
-            label: const Text('Compile New Rule'),
+            label: const Text('Add Pricing Rule'),
             backgroundColor: theme.primaryColor,
             onPressed: () => _showPricingWizard(blocContext, null),
           ),
@@ -59,18 +59,16 @@ class _PricingEngineScreenState extends State<PricingEngineScreen> {
                     buildWhen: (prev, current) =>
                         current is PricingLoaded || current is PricingLoading,
                     builder: (context, state) {
-                      if (state is PricingLoading) {
+                      if (state is PricingLoading)
                         return const Center(child: CircularProgressIndicator());
-                      }
                       if (state is PricingLoaded) {
-                        if (state.rules.isEmpty) {
+                        if (state.rules.isEmpty)
                           return const Center(
                             child: Text(
-                              'No pricing architectures defined.',
+                              'No pricing rules defined.',
                               style: TextStyle(color: Colors.grey),
                             ),
                           );
-                        }
 
                         return GridView.builder(
                           gridDelegate:
@@ -107,7 +105,7 @@ class _PricingEngineScreenState extends State<PricingEngineScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Pricing & Revenue Architecture',
+          'Pricing Rules',
           style: theme.textTheme.headlineMedium?.copyWith(
             fontWeight: FontWeight.bold,
             color: Colors.white,
@@ -115,7 +113,7 @@ class _PricingEngineScreenState extends State<PricingEngineScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Manage starting prices, per-kilometer fees, and extra charges for all services.',
+          'Manage starting prices, per-kilometer fees, and extra charges.',
           style: TextStyle(color: theme.disabledColor),
         ),
       ],
@@ -185,7 +183,7 @@ class _PricingEngineScreenState extends State<PricingEngineScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Base Fare',
+                      'Base Price',
                       style: TextStyle(color: Colors.grey, fontSize: 11),
                     ),
                     Text(
@@ -217,7 +215,7 @@ class _PricingEngineScreenState extends State<PricingEngineScreen> {
                 ),
                 FilledButton.tonal(
                   onPressed: () => _showPricingWizard(blocContext, rule),
-                  child: const Text('Edit Matrix'),
+                  child: const Text('Edit Prices'),
                 ),
               ],
             ),
@@ -250,7 +248,6 @@ class _PricingEngineScreenState extends State<PricingEngineScreen> {
   }
 }
 
-// --- WIZARD FORM STATE ---
 class _PricingWizardForm extends StatefulWidget {
   final PricingEngineBloc bloc;
   final PricingRuleModel? existingRule;
@@ -271,17 +268,14 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
   late TabController _tabController;
   final _formKey = GlobalKey<FormState>();
 
-  // Meta
   final _nameCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   int _serviceType = 1;
 
-  // Core
   final _baseFareCtrl = TextEditingController();
   final _incDistCtrl = TextEditingController();
   final _rateKmCtrl = TextEditingController();
 
-  // Recovery & Wait
   final _recBaseCtrl = TextEditingController();
   final _recIncMinCtrl = TextEditingController();
   final _recRateMinCtrl = TextEditingController();
@@ -289,7 +283,6 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
   final _waitRateMinCtrl = TextEditingController();
   final _cancelFeeCtrl = TextEditingController();
 
-  // Surcharges
   final _afterHoursCtrl = TextEditingController();
   final _holidayCtrl = TextEditingController();
   final _duallyCtrl = TextEditingController();
@@ -336,9 +329,9 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    // Use BoxConstraints to ensure it scales down nicely on mobile screens
     return Container(
-      width: 900,
-      height: 750,
+      constraints: const BoxConstraints(maxWidth: 900, maxHeight: 750),
       padding: const EdgeInsets.all(32),
       child: Form(
         key: _formKey,
@@ -364,8 +357,6 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
               ],
             ),
             const SizedBox(height: 24),
-
-            // --- META DATA ROW ---
             Row(
               children: [
                 Expanded(
@@ -477,7 +468,7 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
             TextFormField(
               controller: _descCtrl,
               decoration: InputDecoration(
-                labelText: 'Description & Notes',
+                labelText: 'Notes',
                 filled: true,
                 fillColor: theme.cardColor,
                 border: const OutlineInputBorder(),
@@ -485,8 +476,6 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
               style: const TextStyle(color: Colors.white),
             ),
             const SizedBox(height: 24),
-
-            // --- TABBED MATRICES ---
             TabBar(
               controller: _tabController,
               labelColor: theme.primaryColor,
@@ -494,8 +483,8 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
               indicatorColor: theme.primaryColor,
               tabs: const [
                 Tab(text: 'Standard Fees'),
-                Tab(text: 'Wait & Recovery Fees'),
-                Tab(text: 'Optional Extra Fees'),
+                Tab(text: 'Wait Fees'),
+                Tab(text: 'Extra Fees'),
               ],
             ),
             const SizedBox(height: 24),
@@ -532,7 +521,6 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
                   )
                 else
                   const SizedBox.shrink(),
-
                 Row(
                   children: [
                     TextButton(
@@ -559,7 +547,7 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
     return ListView(
       children: [
         _buildCurrencyInput(
-          'Starting Base Fare (\$)',
+          'Starting Base Price (\$)',
           _baseFareCtrl,
           theme,
           isRequired: true,
@@ -577,7 +565,7 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
           isRequired: true,
         ),
         _buildCurrencyInput(
-          'Cancellation Penalty Fee (\$)',
+          'Cancellation Fee (\$)',
           _cancelFeeCtrl,
           theme,
           isRequired: true,
@@ -590,7 +578,7 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
     return ListView(
       children: [
         _buildCurrencyInput(
-          'Winching / Off-Road Base Fee (\$)',
+          'Winching Base Fee (\$)',
           _recBaseCtrl,
           theme,
           isRequired: true,
@@ -723,15 +711,12 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
         freeWaitingTimeMinutes: int.parse(_waitFreeMinCtrl.text),
         waitingRatePerMinute: double.parse(_waitRateMinCtrl.text),
         cancellationFee: double.parse(_cancelFeeCtrl.text),
-
         afterHoursSurcharge: double.tryParse(_afterHoursCtrl.text),
         holidaySurcharge: double.tryParse(_holidayCtrl.text),
         duallySurcharge: double.tryParse(_duallyCtrl.text),
         multiTruckSurcharge: double.tryParse(_multiTruckCtrl.text),
-
         isActive: true,
       );
-
       widget.bloc.add(SavePricingRule(rule: rule, isNew: widget.isNew));
       Navigator.pop(context);
     }

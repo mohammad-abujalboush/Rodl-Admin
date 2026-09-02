@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:roadside_service/features/pricing_engine/data/models/pricing_rule_model.dart';
 import '../../../../core/api/dio_client.dart';
 import '../../domain/repositories/admin_repository.dart';
@@ -8,18 +7,14 @@ class AdminRepositoryImpl implements AdminRepository {
 
   AdminRepositoryImpl(this._dioClient);
 
+  // --- PRICING ENGINE ---
   @override
   Future<bool> createPricingRule(PricingRuleModel newRule) async {
     try {
-      // Adjust the endpoint path if your API routing differs
       final response = await _dioClient.dio.post(
         '/api/admin/pricing-rules',
         data: newRule.toJson(),
       );
-
-      // If you are using Dio directly instead of a remoteDataSource wrapper, use:
-      // final response = await dio.post('/api/admin/pricing-rules', data: newRule.toJson());
-
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
       return false;
@@ -30,8 +25,9 @@ class AdminRepositoryImpl implements AdminRepository {
   Future<List<PricingRuleModel>> getPricingRules() async {
     try {
       final response = await _dioClient.dio.get('/api/admin/pricing-rules');
-      List<dynamic> data = response.data;
-      return data.map((json) => PricingRuleModel.fromJson(json)).toList();
+      return (response.data as List)
+          .map((json) => PricingRuleModel.fromJson(json))
+          .toList();
     } catch (e) {
       throw Exception('Failed to load pricing rules: $e');
     }
@@ -63,7 +59,6 @@ class AdminRepositoryImpl implements AdminRepository {
         '/api/admin/override-job/$requestId',
         data: overrideData,
       );
-      // Returns the newly calculated total from the server
       return (response.data['newTotal'] as num).toDouble();
     } catch (e) {
       throw Exception('Failed to override job pricing: $e');
@@ -79,6 +74,75 @@ class AdminRepositoryImpl implements AdminRepository {
       return response.statusCode == 200;
     } catch (e) {
       throw Exception('Failed to delete pricing rule: $e');
+    }
+  }
+
+  // --- PROMOTIONS ---
+  @override
+  Future<List<dynamic>> getPromotions() async {
+    try {
+      final response = await _dioClient.dio.get('/api/admin/promotions');
+      return response.data as List;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  @override
+  Future<bool> createPromotion(Map<String, dynamic> promoData) async {
+    try {
+      final response = await _dioClient.dio.post(
+        '/api/admin/promotions',
+        data: promoData,
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> deletePromotion(String id) async {
+    try {
+      final response = await _dioClient.dio.delete('/api/admin/promotions/$id');
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // --- POLICY HUB ---
+  @override
+  Future<String> getPolicyDocument(String type) async {
+    try {
+      final response = await _dioClient.dio.get('/api/Policies/$type');
+      return response.data['content'] ?? '';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  @override
+  Future<bool> updatePolicyDocument(String type, String content) async {
+    try {
+      final response = await _dioClient.dio.put(
+        '/api/Policies/$type',
+        data: {'content': content},
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // --- AUDIT LOGS ---
+  @override
+  Future<List<dynamic>> getAuditLogs() async {
+    try {
+      final response = await _dioClient.dio.get('/api/admin/audit-logs');
+      return response.data as List;
+    } catch (e) {
+      return [];
     }
   }
 }

@@ -1,4 +1,3 @@
-// lib/features/dispatch/presentation/screens/active_jobs_screen.dart
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -15,7 +14,7 @@ import '../../../../core/di/injection_container.dart';
 import '../bloc/active_jobs_bloc.dart';
 
 // ============================================================================
-// DTO DEFINITIONS (Required for Autocomplete and Dropdowns)
+// DTO DEFINITIONS
 // ============================================================================
 class CustomerCrmDto {
   final String id;
@@ -69,7 +68,8 @@ class ActiveJobsScreen extends StatefulWidget {
 
 class _ActiveJobsScreenState extends State<ActiveJobsScreen> {
   String _searchQuery = '';
-  int? _statusFilter;
+  // 0: Pending, 1: In Progress, 2: Completed, 3: Cancelled
+  int _selectedFilterTab = 0;
   bool _hasAutoOpened = false;
 
   @override
@@ -174,9 +174,28 @@ class _ActiveJobsScreenState extends State<ActiveJobsScreen> {
                                   j.customerName.toLowerCase().contains(
                                     _searchQuery,
                                   );
-                              final matchesStatus =
-                                  _statusFilter == null ||
-                                  j.status == _statusFilter;
+
+                              bool matchesStatus = false;
+                              if (_selectedFilterTab == 0) {
+                                // Pending
+                                matchesStatus = j.status == 0;
+                              } else if (_selectedFilterTab == 1) {
+                                // In Progress (Accepted, Arrived, Waiting, Loading, Transit)
+                                matchesStatus = [
+                                  1,
+                                  2,
+                                  4,
+                                  5,
+                                  6,
+                                ].contains(j.status);
+                              } else if (_selectedFilterTab == 2) {
+                                // Completed
+                                matchesStatus = j.status == 3;
+                              } else if (_selectedFilterTab == 3) {
+                                // Cancelled
+                                matchesStatus = j.status == 99;
+                              }
+
                               return matchesSearch && matchesStatus;
                             }).toList();
 
@@ -248,7 +267,7 @@ class _ActiveJobsScreenState extends State<ActiveJobsScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
-          'Active Job Ledger',
+          'Jobs & History',
           style: theme.textTheme.headlineMedium?.copyWith(
             fontWeight: FontWeight.bold,
             color: theme.colorScheme.onSurface,
@@ -284,8 +303,8 @@ class _ActiveJobsScreenState extends State<ActiveJobsScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              icon: const Icon(Icons.add_alert),
-              label: const Text('Advanced Dispatch Wizard'),
+              icon: const Icon(Icons.add),
+              label: const Text('Create New Job'),
               onPressed: () => _openDispatchWizard(context, theme),
             ),
           ],
@@ -295,35 +314,17 @@ class _ActiveJobsScreenState extends State<ActiveJobsScreen> {
   }
 
   Widget _buildStatusFilters(ThemeData theme) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          FilterChip(
-            label: const Text('All Jobs'),
-            selected: _statusFilter == null,
-            onSelected: (s) => setState(() => _statusFilter = s ? null : null),
-          ),
-          const SizedBox(width: 8),
-          FilterChip(
-            label: const Text('Pending Dispatch'),
-            selected: _statusFilter == 0,
-            onSelected: (s) => setState(() => _statusFilter = s ? 0 : null),
-          ),
-          const SizedBox(width: 8),
-          FilterChip(
-            label: const Text('Driver Accepted'),
-            selected: _statusFilter == 1,
-            onSelected: (s) => setState(() => _statusFilter = s ? 1 : null),
-          ),
-          const SizedBox(width: 8),
-          FilterChip(
-            label: const Text('Driver Arrived'),
-            selected: _statusFilter == 2,
-            onSelected: (s) => setState(() => _statusFilter = s ? 2 : null),
-          ),
-        ],
-      ),
+    return SegmentedButton<int>(
+      segments: const [
+        ButtonSegment(value: 0, label: Text('Pending Jobs')),
+        ButtonSegment(value: 1, label: Text('In Progress')),
+        ButtonSegment(value: 2, label: Text('Completed')),
+        ButtonSegment(value: 3, label: Text('Cancelled')),
+      ],
+      selected: {_selectedFilterTab},
+      onSelectionChanged: (set) {
+        setState(() => _selectedFilterTab = set.first);
+      },
     );
   }
 
@@ -336,7 +337,7 @@ class _ActiveJobsScreenState extends State<ActiveJobsScreen> {
     if (jobs.isEmpty)
       return Center(
         child: Text(
-          'No active jobs found.',
+          'No jobs found.',
           style: TextStyle(color: theme.disabledColor),
         ),
       );
@@ -397,7 +398,7 @@ class _ActiveJobsScreenState extends State<ActiveJobsScreen> {
                 FilledButton.tonal(
                   onPressed: () =>
                       _showJobDetailsModal(context, job, fleet, theme),
-                  child: const Text('Manage'),
+                  child: const Text('View Details'),
                 ),
               ],
             ),
@@ -474,9 +475,11 @@ class _ActiveJobsScreenState extends State<ActiveJobsScreen> {
       case 0:
         return Colors.orange;
       case 1:
-        return Colors.blue;
       case 2:
-        return Colors.purple;
+      case 4:
+      case 5:
+      case 6:
+        return Colors.blue;
       case 3:
         return Colors.green;
       default:
@@ -486,7 +489,7 @@ class _ActiveJobsScreenState extends State<ActiveJobsScreen> {
 }
 
 // ============================================================================
-// THE ADVANCED MANUAL DISPATCH WIZARD
+// THE CREATE JOB WIZARD (Simplified English)
 // ============================================================================
 class _AdvancedDispatchWizard extends StatefulWidget {
   final List<FleetDriverModel> fleet;
@@ -649,7 +652,7 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Advanced Dispatch & Assignment',
+                'Create New Job',
                 style: widget.theme.textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: widget.theme.colorScheme.onSurface,
@@ -687,9 +690,7 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
                       FilledButton(
                         onPressed: details.onStepContinue,
                         child: Text(
-                          _currentStep == 3
-                              ? 'Confirm & Broadcast'
-                              : 'Next Step',
+                          _currentStep == 3 ? 'Confirm & Send' : 'Next Step',
                         ),
                       ),
                       const SizedBox(width: 16),
@@ -704,22 +705,22 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
               },
               steps: [
                 Step(
-                  title: const Text('Customer & Vehicle'),
+                  title: const Text('Customer Info'),
                   isActive: _currentStep >= 0,
                   content: _buildCustomerAndVehicleStep(),
                 ),
                 Step(
-                  title: const Text('Interactive Map'),
+                  title: const Text('Map Location'),
                   isActive: _currentStep >= 1,
                   content: _buildMapStep(),
                 ),
                 Step(
-                  title: const Text('Incident Details'),
+                  title: const Text('Service Needs'),
                   isActive: _currentStep >= 2,
                   content: _buildServiceDetailsStep(),
                 ),
                 Step(
-                  title: const Text('Assignment & Review'),
+                  title: const Text('Assign Driver'),
                   isActive: _currentStep >= 3,
                   content: _buildReviewStep(),
                 ),
@@ -742,7 +743,7 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Customer Identity',
+                  'Customer Details',
                   style: TextStyle(
                     color: widget.theme.primaryColor,
                     fontWeight: FontWeight.bold,
@@ -784,7 +785,7 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
                           controller: controller,
                           focusNode: focusNode,
                           decoration: InputDecoration(
-                            labelText: 'Search CRM Customer (Name, Phone)',
+                            labelText: 'Search Customer (Name or Phone)',
                             filled: true,
                             fillColor: widget.theme.cardColor,
                             border: const OutlineInputBorder(),
@@ -792,23 +793,6 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
                           ),
                         );
                       },
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(child: Divider(color: widget.theme.dividerColor)),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Text(
-                        'OR CREATE NEW',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: widget.theme.disabledColor,
-                        ),
-                      ),
-                    ),
-                    Expanded(child: Divider(color: widget.theme.dividerColor)),
-                  ],
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -835,17 +819,6 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
                   onChanged: (_) => _selectedCustomerId = null,
                   validator: (v) => v!.isEmpty ? 'Required' : null,
                 ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _emailCtrl,
-                  decoration: InputDecoration(
-                    labelText: 'Email Address (Optional)',
-                    filled: true,
-                    fillColor: widget.theme.cardColor,
-                    border: const OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                ),
               ],
             ),
           ),
@@ -855,7 +828,7 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Digital Garage (Vehicle)',
+                  'Vehicle Details',
                   style: TextStyle(
                     color: widget.theme.primaryColor,
                     fontWeight: FontWeight.bold,
@@ -868,19 +841,16 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
                     initialValue: _selectedVehicle,
                     dropdownColor: widget.theme.cardColor,
                     decoration: InputDecoration(
-                      labelText: 'Select Client Saved Vehicle',
+                      labelText: 'Select Saved Vehicle',
                       filled: true,
                       fillColor: widget.theme.cardColor,
                       border: const OutlineInputBorder(),
-                      prefixIcon: const Icon(Icons.directions_car),
                     ),
                     items: _availableVehicles
                         .map(
                           (v) => DropdownMenuItem(
                             value: v,
-                            child: Text(
-                              '${v.year} ${v.make} ${v.model} (${v.licensePlate ?? "No Plate"})',
-                            ),
+                            child: Text('${v.year} ${v.make} ${v.model}'),
                           ),
                         )
                         .toList(),
@@ -895,27 +865,6 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
                         });
                       }
                     },
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Divider(color: widget.theme.dividerColor),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                        child: Text(
-                          'OR OVERRIDE MANUALLY',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: widget.theme.disabledColor,
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: Divider(color: widget.theme.dividerColor),
-                      ),
-                    ],
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -994,16 +943,6 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _plateCtrl,
-                  decoration: InputDecoration(
-                    labelText: 'License Plate (Optional)',
-                    filled: true,
-                    fillColor: widget.theme.cardColor,
-                    border: const OutlineInputBorder(),
-                  ),
-                ),
               ],
             ),
           ),
@@ -1022,7 +961,6 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
           icon: BitmapDescriptor.defaultMarkerWithHue(
             BitmapDescriptor.hueOrange,
           ),
-          infoWindow: const InfoWindow(title: 'Pickup Location'),
         ),
       );
     if (_dropoffLocation != null)
@@ -1033,7 +971,6 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
           icon: BitmapDescriptor.defaultMarkerWithHue(
             BitmapDescriptor.hueMagenta,
           ),
-          infoWindow: const InfoWindow(title: 'Drop-off Destination'),
         ),
       );
 
@@ -1046,7 +983,7 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
               child: TextField(
                 controller: _mapSearchCtrl,
                 decoration: InputDecoration(
-                  labelText: 'Search Location / Address',
+                  labelText: 'Search Address',
                   filled: true,
                   fillColor: widget.theme.cardColor,
                   prefixIcon: const Icon(Icons.search),
@@ -1066,33 +1003,20 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
                 onSubmitted: (_) => _searchMapLocation(),
               ),
             ),
-            const SizedBox(width: 16),
-            FilledButton.icon(
-              onPressed: _getCurrentUserLocation,
-              icon: const Icon(Icons.my_location),
-              label: const Text('My Location'),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 18,
-                ),
-              ),
-            ),
           ],
         ),
         const SizedBox(height: 16),
-
         SizedBox(
           width: double.infinity,
           child: SegmentedButton<bool>(
             segments: const [
               ButtonSegment<bool>(
                 value: true,
-                label: Text('Set Extraction Point (Pickup)'),
+                label: Text('Set Pickup Location'),
               ),
               ButtonSegment<bool>(
                 value: false,
-                label: Text('Set Destination Point (Drop-off)'),
+                label: Text('Set Drop-off Location'),
               ),
             ],
             selected: {_settingPickup},
@@ -1101,7 +1025,6 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
             },
           ),
         ),
-
         const SizedBox(height: 16),
         Container(
           height: 350,
@@ -1118,11 +1041,6 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
             ),
             onMapCreated: (c) => _mapController = c,
             markers: markers,
-            gestureRecognizers: {
-              Factory<OneSequenceGestureRecognizer>(
-                () => EagerGestureRecognizer(),
-              ),
-            },
             onTap: (latLng) => setState(() {
               if (_settingPickup) {
                 _pickupLocation = latLng;
@@ -1132,17 +1050,6 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
             }),
           ),
         ),
-        if (_pickupLocation == null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8.0),
-            child: Text(
-              'Warning: Pickup location is strictly required. Tap the map to place a pin.',
-              style: TextStyle(
-                color: widget.theme.colorScheme.error,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
       ],
     );
   }
@@ -1151,26 +1058,34 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // FIXED: Included ALL 10 Service Types in the Wizard
         DropdownButtonFormField<int>(
           key: ValueKey(_serviceType),
           initialValue: _serviceType,
           dropdownColor: widget.theme.cardColor,
           decoration: InputDecoration(
-            labelText: 'Required Service Asset',
+            labelText: 'Service Needed',
             filled: true,
             fillColor: widget.theme.cardColor,
             border: const OutlineInputBorder(),
           ),
           items: const [
-            DropdownMenuItem(value: 1, child: Text('Wheel Lift')),
-            DropdownMenuItem(value: 2, child: Text('Flatbed Carrier')),
+            DropdownMenuItem(value: 1, child: Text('Wheel Lift Towing')),
+            DropdownMenuItem(value: 2, child: Text('Flatbed Towing')),
             DropdownMenuItem(value: 3, child: Text('Underground/Specialty')),
+            DropdownMenuItem(value: 4, child: Text('Heavy Duty Commercial')),
+            DropdownMenuItem(value: 5, child: Text('Motorcycle Towing')),
+            DropdownMenuItem(value: 6, child: Text('Jump Start')),
+            DropdownMenuItem(value: 7, child: Text('Flat Tire')),
+            DropdownMenuItem(value: 8, child: Text('Lockout Service')),
+            DropdownMenuItem(value: 9, child: Text('Fuel Delivery')),
+            DropdownMenuItem(value: 10, child: Text('Winching / Recovery')),
           ],
           onChanged: (v) => setState(() => _serviceType = v!),
         ),
         const SizedBox(height: 24),
         Text(
-          'Asset Condition Toggles',
+          'Vehicle Condition',
           style: TextStyle(
             color: widget.theme.primaryColor,
             fontWeight: FontWeight.bold,
@@ -1181,30 +1096,22 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
           children: [
             Expanded(
               child: SwitchListTile(
-                title: const Text('Vehicle is Drivable'),
+                title: const Text('Car Can Drive'),
                 value: _isDrivable,
-                activeColor: widget.theme.primaryColor,
-                activeTrackColor: widget.theme.primaryColor.withValues(
-                  alpha: 0.5,
-                ),
                 onChanged: (v) => setState(() => _isDrivable = v),
               ),
             ),
             Expanded(
               child: SwitchListTile(
-                title: const Text('Wheels Locked/Missing Keys'),
+                title: const Text('Wheels Locked'),
                 value: _wheelsLocked,
-                activeColor: Colors.red,
-                activeTrackColor: Colors.red.withValues(alpha: 0.5),
                 onChanged: (v) => setState(() => _wheelsLocked = v),
               ),
             ),
             Expanded(
               child: SwitchListTile(
-                title: const Text('Requires Dollies'),
+                title: const Text('Needs Dollies'),
                 value: _requiresDollies,
-                activeColor: Colors.orange,
-                activeTrackColor: Colors.orange.withValues(alpha: 0.5),
                 onChanged: (v) => setState(() => _requiresDollies = v),
               ),
             ),
@@ -1215,7 +1122,7 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
           controller: _locationConditionCtrl,
           maxLines: 3,
           decoration: InputDecoration(
-            labelText: 'Location Hazards / Parking Codes',
+            labelText: 'Notes for Driver (Hazards, Parking)',
             filled: true,
             fillColor: widget.theme.cardColor,
             border: const OutlineInputBorder(),
@@ -1234,17 +1141,15 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
           initialValue: _selectedDriverId,
           dropdownColor: widget.theme.cardColor,
           decoration: InputDecoration(
-            labelText:
-                'Direct Driver Assignment (Leave empty to queue to fleet)',
+            labelText: 'Assign Driver (Leave blank to queue)',
             filled: true,
             fillColor: widget.theme.cardColor,
             border: const OutlineInputBorder(),
-            prefixIcon: const Icon(Icons.person_search),
           ),
           items: [
             const DropdownMenuItem<String>(
               value: null,
-              child: Text('Broadcast to all available drivers (Queue)'),
+              child: Text('Send to all available drivers'),
             ),
             ...widget.fleet.map(
               (d) => DropdownMenuItem(
@@ -1255,74 +1160,12 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
           ],
           onChanged: (v) => setState(() => _selectedDriverId = v),
         ),
-        const SizedBox(height: 32),
-        Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: widget.theme.primaryColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: widget.theme.primaryColor),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Dispatch Summary',
-                style: widget.theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: widget.theme.primaryColor,
-                ),
-              ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.person),
-                title: Text(
-                  _nameCtrl.text.isEmpty ? 'Pending Customer' : _nameCtrl.text,
-                ),
-                subtitle: Text(_phoneCtrl.text),
-              ),
-              ListTile(
-                leading: const Icon(Icons.directions_car),
-                title: Text('$_selectedYear $_selectedMake $_selectedModel'),
-                subtitle: Text(
-                  'Service Type: ${_serviceType == 1 ? "Wheel Lift" : "Flatbed"}',
-                ),
-              ),
-              ListTile(
-                leading: const Icon(Icons.location_on),
-                title: const Text('Coordinates Recorded'),
-                subtitle: Text(
-                  'Pickup: ${_pickupLocation != null ? "Yes" : "NO"} | Dropoff: ${_dropoffLocation != null ? "Yes" : "No"}',
-                ),
-              ),
-            ],
-          ),
-        ),
       ],
     );
   }
 
   void _submitDispatch() {
-    if (!_formKey.currentState!.validate()) {
-      setState(() => _currentStep = 0);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please fill out all required customer and vehicle fields.',
-          ),
-        ),
-      );
-      return;
-    }
-    if (_pickupLocation == null) {
-      setState(() => _currentStep = 1);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('A precise pickup location must be set on the map.'),
-        ),
-      );
-      return;
-    }
+    if (!_formKey.currentState!.validate() || _pickupLocation == null) return;
 
     widget.bloc.add(
       CreateManualDispatch(
@@ -1353,7 +1196,7 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
 }
 
 // ============================================================================
-// COMMAND CENTER MODAL
+// JOB DETAILS MODAL (Command Center)
 // ============================================================================
 class _CommandCenterModal extends StatefulWidget {
   final ActiveJobModel job;
@@ -1376,86 +1219,24 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  late TextEditingController _vehCtrl;
-  late TextEditingController _locCtrl;
-  late int _editServiceType;
   late int _editStatus;
-
-  late int _lastKnownStatus;
-  late int _lastKnownServiceType;
 
   late TextEditingController _baseCtrl;
   late TextEditingController _distCtrl;
   late TextEditingController _waitCtrl;
   late TextEditingController _surCtrl;
 
-  final TextEditingController _addonDescMainCtrl = TextEditingController();
-  late TextEditingController _addonPriceCtrl;
-  late TextEditingController _photoNotesCtrl;
-  String _photoType = 'DamageReport';
-
-  final List<String> _predefinedAddons = [
-    'Winching (Standard)',
-    'Winching (Heavy Duty)',
-    'Dollies Usage',
-    'Tire Change',
-    'Jump Start',
-    'Lockout Service',
-    'Fuel Delivery',
-  ];
-
-  PlatformFile? _selectedPhotoFile;
-  bool _isUploadingFile = false;
-
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _vehCtrl = TextEditingController(text: widget.job.vehicleDetails);
-    _locCtrl = TextEditingController(text: widget.job.locationCondition);
-
-    _editServiceType = [1, 2, 3].contains(widget.job.serviceType)
-        ? widget.job.serviceType
-        : 1;
 
     _editStatus = widget.job.status;
-
-    _lastKnownStatus = widget.job.status;
-    _lastKnownServiceType = widget.job.serviceType;
 
     _baseCtrl = TextEditingController(text: widget.job.baseFare.toString());
     _distCtrl = TextEditingController(text: widget.job.distanceFee.toString());
     _waitCtrl = TextEditingController(text: widget.job.waitPenalty.toString());
     _surCtrl = TextEditingController(text: widget.job.surcharges.toString());
-    _addonPriceCtrl = TextEditingController();
-    _photoNotesCtrl = TextEditingController();
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    _vehCtrl.dispose();
-    _locCtrl.dispose();
-    _baseCtrl.dispose();
-    _distCtrl.dispose();
-    _waitCtrl.dispose();
-    _surCtrl.dispose();
-    _addonDescMainCtrl.dispose();
-    _addonPriceCtrl.dispose();
-    _photoNotesCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickEvidenceFile() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-      allowMultiple: false,
-    );
-    if (result != null) {
-      setState(() {
-        _selectedPhotoFile = result.files.first;
-      });
-    }
   }
 
   @override
@@ -1469,20 +1250,8 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
             currentJob = state.jobs.firstWhere(
               (j) => j.requestId == widget.job.requestId,
             );
-
-            if (currentJob.status != _lastKnownStatus) {
-              _editStatus = currentJob.status;
-              _lastKnownStatus = currentJob.status;
-            }
-            if (currentJob.serviceType != _lastKnownServiceType) {
-              _editServiceType = [1, 2, 3].contains(currentJob.serviceType)
-                  ? currentJob.serviceType
-                  : 1;
-              _lastKnownServiceType = currentJob.serviceType;
-            }
-          } catch (e) {
-            // Job voided
-          }
+            _editStatus = currentJob.status;
+          } catch (e) {}
         }
 
         return Container(
@@ -1499,7 +1268,7 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Command Center: #${currentJob.requestId.substring(0, 8).toUpperCase()}',
+                        'Job Details: #${currentJob.requestId.substring(0, 8).toUpperCase()}',
                         style: widget.theme.textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: widget.theme.colorScheme.onSurface,
@@ -1511,12 +1280,10 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
                           currentJob.statusText,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: _getStatusColor(currentJob.status),
+                            color: Colors.blue,
                           ),
                         ),
-                        backgroundColor: _getStatusColor(
-                          currentJob.status,
-                        ).withValues(alpha: 0.1),
+                        backgroundColor: Colors.blue.withValues(alpha: 0.1),
                         side: BorderSide.none,
                       ),
                     ],
@@ -1537,12 +1304,9 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
                 unselectedLabelColor: widget.theme.disabledColor,
                 indicatorColor: widget.theme.primaryColor,
                 tabs: const [
-                  Tab(icon: Icon(Icons.map), text: 'Logistics & Dispatch'),
-                  Tab(
-                    icon: Icon(Icons.receipt_long),
-                    text: 'Financial Overrides',
-                  ),
-                  Tab(icon: Icon(Icons.photo_library), text: 'Media & Addons'),
+                  Tab(icon: Icon(Icons.map), text: 'Map & Details'),
+                  Tab(icon: Icon(Icons.receipt_long), text: 'Edit Prices'),
+                  Tab(icon: Icon(Icons.photo_library), text: 'Photos & Extras'),
                 ],
               ),
               const SizedBox(height: 24),
@@ -1552,7 +1316,9 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
                   children: [
                     _buildLogisticsTab(currentJob),
                     _buildFinancialsTab(currentJob),
-                    _buildMediaAndAddonsTab(currentJob),
+                    const Center(
+                      child: Text("Photos and Extras managed via mobile app."),
+                    ),
                   ],
                 ),
               ),
@@ -1564,10 +1330,6 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
   }
 
   Widget _buildLogisticsTab(ActiveJobModel currentJob) {
-    final activeDriver = widget.fleet
-        .where((d) => d.fullName == currentJob.driverName)
-        .firstOrNull;
-
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1578,7 +1340,7 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Parties Involved',
+                  'People Involved',
                   style: TextStyle(
                     color: widget.theme.colorScheme.onSurface,
                     fontSize: 18,
@@ -1586,52 +1348,26 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
                   ),
                 ),
                 const SizedBox(height: 16),
-                _buildProfileAccordion(
-                  role: 'Customer',
-                  name: currentJob.customerName,
-                  phone: currentJob.customerPhone,
-                  extraDetails: {
-                    'Job Created': DateFormat(
-                      'MMM dd, yyyy - HH:mm',
-                    ).format(currentJob.createdAt),
-                    'Vehicle Focus':
-                        currentJob.vehicleDetails ?? 'No vehicle specified',
-                  },
-                  theme: widget.theme,
-                  crmAction: () => ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Navigating to CRM profile for ${currentJob.customerName}...',
-                      ),
-                    ),
-                  ),
+                ListTile(
+                  leading: const Icon(Icons.person),
+                  title: Text(currentJob.customerName),
+                  subtitle: Text(currentJob.customerPhone),
+                  tileColor: widget.theme.cardColor,
                 ),
                 const SizedBox(height: 16),
-                _buildProfileAccordion(
-                  role: 'Assigned Fleet Driver',
-                  name: currentJob.driverName.isEmpty
-                      ? "Unassigned"
-                      : currentJob.driverName,
-                  phone: 'System Managed Routing',
-                  extraDetails: {
-                    'Est. Distance':
-                        '${currentJob.estimatedDistanceKm.toStringAsFixed(1)} KM',
-                    'Active Vehicle':
-                        activeDriver?.vehicle ?? 'Unknown Assigned Unit',
-                    'Current Job Status': currentJob.statusText,
-                  },
-                  theme: widget.theme,
-                  crmAction: () => ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Opening Driver management portal for ${currentJob.driverName.isEmpty ? "Unknown" : currentJob.driverName}...',
-                      ),
-                    ),
+                ListTile(
+                  leading: const Icon(Icons.local_shipping),
+                  title: Text(
+                    currentJob.driverName.isEmpty
+                        ? "No Driver Assigned"
+                        : currentJob.driverName,
                   ),
+                  subtitle: Text(currentJob.statusText),
+                  tileColor: widget.theme.cardColor,
                 ),
                 const SizedBox(height: 32),
                 Text(
-                  'Service Request Parameters',
+                  'Update Job Settings',
                   style: TextStyle(
                     color: widget.theme.colorScheme.onSurface,
                     fontSize: 18,
@@ -1642,129 +1378,12 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
                 Row(
                   children: [
                     Expanded(
+                      // FIXED: Added Status 4 to prevent assertion crashes
                       child: DropdownButtonFormField<int>(
-                        key: ValueKey(_editServiceType),
-                        initialValue: _editServiceType,
+                        value: _editStatus,
                         dropdownColor: widget.theme.cardColor,
                         decoration: InputDecoration(
-                          labelText: 'Requested Asset Type',
-                          border: const OutlineInputBorder(),
-                          filled: true,
-                          fillColor: widget.theme.cardColor,
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 1,
-                            child: Text(
-                              'Wheel Lift Towing',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                          DropdownMenuItem(
-                            value: 2,
-                            child: Text(
-                              'Flatbed Carrier',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                          DropdownMenuItem(
-                            value: 3,
-                            child: Text(
-                              'Underground/Specialty',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                          DropdownMenuItem(
-                            value: 4,
-                            child: Text(
-                              'Heavy Duty Commercial',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                          DropdownMenuItem(
-                            value: 5,
-                            child: Text(
-                              'Motorcycle Towing',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                          DropdownMenuItem(
-                            value: 6,
-                            child: Text(
-                              'Battery Jump Start',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                          DropdownMenuItem(
-                            value: 7,
-                            child: Text(
-                              'Flat Tire Service',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                          DropdownMenuItem(
-                            value: 8,
-                            child: Text(
-                              'Lockout Service',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                          DropdownMenuItem(
-                            value: 9,
-                            child: Text(
-                              'Fuel / Fluid Delivery',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                          DropdownMenuItem(
-                            value: 10,
-                            child: Text(
-                              'Winching / Recovery',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        ],
-                        onChanged: (v) => setState(() => _editServiceType = v!),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: DropdownButtonFormField<int>(
-                        key: ValueKey(_editStatus),
-                        initialValue: _editStatus,
-                        dropdownColor: widget.theme.cardColor,
-                        decoration: InputDecoration(
-                          labelText: 'Incident Status',
+                          labelText: 'Job Status',
                           border: const OutlineInputBorder(),
                           filled: true,
                           fillColor: widget.theme.cardColor,
@@ -1773,7 +1392,7 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
                           DropdownMenuItem(
                             value: 0,
                             child: Text(
-                              'Pending Dispatch',
+                              'Pending',
                               style: TextStyle(color: Colors.white),
                             ),
                           ),
@@ -1801,14 +1420,14 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
                           DropdownMenuItem(
                             value: 5,
                             child: Text(
-                              'Loading Vehicle',
+                              'Loading Car',
                               style: TextStyle(color: Colors.white),
                             ),
                           ),
                           DropdownMenuItem(
                             value: 6,
                             child: Text(
-                              'In Transit to Dropoff',
+                              'Driving to Dropoff',
                               style: TextStyle(color: Colors.white),
                             ),
                           ),
@@ -1832,113 +1451,20 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _vehCtrl,
-                  decoration: InputDecoration(
-                    labelText: 'Customer Vehicle Specifications',
-                    border: const OutlineInputBorder(),
-                    filled: true,
-                    fillColor: widget.theme.cardColor,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _locCtrl,
-                  maxLines: 3,
-                  decoration: InputDecoration(
-                    labelText: 'Location Hazards & Dispatch Notes',
-                    border: const OutlineInputBorder(),
-                    filled: true,
-                    fillColor: widget.theme.cardColor,
-                  ),
-                ),
                 const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    icon: const Icon(Icons.save),
-                    onPressed: () {
-                      widget.bloc.add(
-                        UpdateJobDetails(
-                          requestId: currentJob.requestId,
-                          updateData: {
-                            'serviceType': _editServiceType,
-                            'status': _editStatus,
-                            'customerVehicleType': _vehCtrl.text,
-                            'locationCondition': _locCtrl.text,
-                            'adminNote': 'Admin manual profile update',
-                          },
-                        ),
-                      );
-                    },
-                    label: const Text('Save Dispatch Parameters'),
-                  ),
+                FilledButton(
+                  onPressed: () {
+                    widget.bloc.add(
+                      UpdateJobDetails(
+                        requestId: currentJob.requestId,
+                        updateData: {'status': _editStatus},
+                      ),
+                    );
+                  },
+                  child: const Text('Save Changes'),
                 ),
               ],
             ),
-          ),
-        ),
-        const SizedBox(width: 48),
-        Expanded(
-          flex: 1,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Action Center',
-                style: TextStyle(
-                  color: widget.theme.colorScheme.onSurface,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 24),
-              if (currentJob.status == 0) ...[
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(vertical: 20),
-                    ),
-                    icon: const Icon(Icons.person_search),
-                    label: const Text(
-                      'Open Fleet Commander',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    onPressed: () => _showFleetCommander(currentJob),
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.redAccent,
-                    side: const BorderSide(color: Colors.redAccent),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  icon: const Icon(Icons.cancel),
-                  label: const Text('Force Void Incident'),
-                  onPressed: () {
-                    widget.bloc.add(
-                      CancelJob(
-                        requestId: currentJob.requestId,
-                        reason: 'Admin Manual Void',
-                        cancellationFee: 0,
-                      ),
-                    );
-                    Navigator.pop(context);
-                  },
-                ),
-              ),
-            ],
           ),
         ),
       ],
@@ -1946,796 +1472,34 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
   }
 
   Widget _buildFinancialsTab(ActiveJobModel currentJob) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 24),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Current Ledger',
-                  style: TextStyle(
-                    color: widget.theme.colorScheme.onSurface,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 24),
-                  decoration: BoxDecoration(
-                    color: widget.theme.cardColor,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    children: [
-                      ListTile(
-                        title: Text(
-                          'Base Fare',
-                          style: TextStyle(
-                            color: widget.theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        trailing: Text(
-                          '\$${currentJob.baseFare.toStringAsFixed(2)}',
-                          style: TextStyle(
-                            color: widget.theme.colorScheme.onSurface,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ),
-                      ListTile(
-                        title: Text(
-                          'Distance Fee',
-                          style: TextStyle(
-                            color: widget.theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        trailing: Text(
-                          '\$${currentJob.distanceFee.toStringAsFixed(2)}',
-                          style: TextStyle(
-                            color: widget.theme.colorScheme.onSurface,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ),
-                      ListTile(
-                        title: Text(
-                          'Wait Penalties',
-                          style: TextStyle(
-                            color: widget.theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        trailing: Text(
-                          '\$${currentJob.waitPenalty.toStringAsFixed(2)}',
-                          style: TextStyle(
-                            color: widget.theme.colorScheme.onSurface,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ),
-                      ListTile(
-                        title: Text(
-                          'Addons & Surcharges',
-                          style: TextStyle(
-                            color: widget.theme.colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        trailing: Text(
-                          '\$${currentJob.surcharges.toStringAsFixed(2)}',
-                          style: TextStyle(
-                            color: widget.theme.colorScheme.onSurface,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      if (currentJob.addons.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24.0,
-                            vertical: 4.0,
-                          ),
-                          child: Column(
-                            children: currentJob.addons
-                                .map(
-                                  (a) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 6.0),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Icon(
-                                              Icons.subdirectory_arrow_right,
-                                              size: 16,
-                                              color: widget.theme.disabledColor,
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              a.description,
-                                              style: TextStyle(
-                                                color:
-                                                    widget.theme.disabledColor,
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        Text(
-                                          '\$${a.price.toStringAsFixed(2)}',
-                                          style: TextStyle(
-                                            color: widget.theme.disabledColor,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                          ),
-                        ),
-                      const Divider(),
-                      ListTile(
-                        title: Text(
-                          'Grand Total',
-                          style: TextStyle(
-                            color: widget.theme.colorScheme.onSurface,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        trailing: Text(
-                          '\$${currentJob.totalFare.toStringAsFixed(2)}',
-                          style: TextStyle(
-                            color: widget.theme.primaryColor,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 48),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Manual Override Engine',
-                  style: TextStyle(
-                    color: Colors.orange,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: Colors.orange.withValues(alpha: 0.5),
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    children: [
-                      TextFormField(
-                        controller: _baseCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'New Base Fare',
-                          border: OutlineInputBorder(),
-                        ),
-                        keyboardType: TextInputType.number,
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _distCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'New Distance Fee',
-                          border: OutlineInputBorder(),
-                        ),
-                        keyboardType: TextInputType.number,
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _waitCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'New Wait Penalty',
-                          border: OutlineInputBorder(),
-                        ),
-                        keyboardType: TextInputType.number,
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _surCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'New Surcharge Total',
-                          border: OutlineInputBorder(),
-                        ),
-                        keyboardType: TextInputType.number,
-                      ),
-                      const SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: Colors.orange,
-                            foregroundColor: Colors.black,
-                            padding: const EdgeInsets.symmetric(vertical: 20),
-                          ),
-                          icon: const Icon(Icons.warning_amber),
-                          label: const Text(
-                            'Apply Destructive Override',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          onPressed: () {
-                            widget.bloc.add(
-                              OverrideJobPricing(
-                                requestId: currentJob.requestId,
-                                pricingData: {
-                                  'newBaseFare':
-                                      double.tryParse(_baseCtrl.text) ??
-                                      currentJob.baseFare,
-                                  'newDistanceFare':
-                                      double.tryParse(_distCtrl.text) ??
-                                      currentJob.distanceFee,
-                                  'newWaitingTimeCharges':
-                                      double.tryParse(_waitCtrl.text) ??
-                                      currentJob.waitPenalty,
-                                  'newSurchargeTotal':
-                                      double.tryParse(_surCtrl.text) ??
-                                      currentJob.surcharges,
-                                  'overrideReason':
-                                      'Admin Panel Manual Override',
-                                },
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMediaAndAddonsTab(ActiveJobModel currentJob) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Job Addons & Surcharges',
-                style: TextStyle(
-                  color: widget.theme.colorScheme.onSurface,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  border: Border.all(color: widget.theme.dividerColor),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    Autocomplete<String>(
-                      optionsBuilder: (TextEditingValue textEditingValue) {
-                        if (textEditingValue.text.isEmpty)
-                          return _predefinedAddons;
-                        return _predefinedAddons.where(
-                          (String option) => option.toLowerCase().contains(
-                            textEditingValue.text.toLowerCase(),
-                          ),
-                        );
-                      },
-                      onSelected: (String selection) =>
-                          _addonDescMainCtrl.text = selection,
-                      fieldViewBuilder:
-                          (context, controller, focusNode, onFieldSubmitted) {
-                            controller.addListener(
-                              () => _addonDescMainCtrl.text = controller.text,
-                            );
-                            return TextFormField(
-                              controller: controller,
-                              focusNode: focusNode,
-                              decoration: InputDecoration(
-                                labelText: 'Addon Description',
-                                filled: true,
-                                fillColor: widget.theme.cardColor,
-                                suffixIcon: const Icon(Icons.arrow_drop_down),
-                              ),
-                            );
-                          },
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _addonPriceCtrl,
-                      decoration: InputDecoration(
-                        labelText: 'Price',
-                        filled: true,
-                        fillColor: widget.theme.cardColor,
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        icon: const Icon(Icons.add_card),
-                        label: const Text('Inject Addon Charge'),
-                        onPressed: () {
-                          widget.bloc.add(
-                            AddJobAddon(
-                              requestId: currentJob.requestId,
-                              description: _addonDescMainCtrl.text,
-                              price:
-                                  double.tryParse(_addonPriceCtrl.text) ?? 0.0,
-                            ),
-                          );
-                          _addonDescMainCtrl.clear();
-                          _addonPriceCtrl.clear();
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: currentJob.addons.isEmpty
-                    ? Center(
-                        child: Text(
-                          'No addons applied.',
-                          style: TextStyle(color: widget.theme.disabledColor),
-                        ),
-                      )
-                    : ListView.separated(
-                        itemCount: currentJob.addons.length,
-                        separatorBuilder: (_, __) => const Divider(),
-                        itemBuilder: (c, i) => ListTile(
-                          leading: const Icon(
-                            Icons.monetization_on,
-                            color: Colors.green,
-                          ),
-                          title: Text(currentJob.addons[i].description),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                '\$${currentJob.addons[i].price.toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.delete_outline,
-                                  color: Colors.redAccent,
-                                ),
-                                tooltip: 'Reverse Charge',
-                                onPressed: () {
-                                  final targetId = currentJob.addons[i].id;
-                                  if (targetId.isNotEmpty)
-                                    widget.bloc.add(
-                                      RemoveJobAddon(
-                                        requestId: currentJob.requestId,
-                                        addonId: targetId,
-                                      ),
-                                    );
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-              ),
-            ],
+        ListTile(
+          title: const Text('Total Cost'),
+          trailing: Text(
+            '\$${currentJob.totalFare.toStringAsFixed(2)}',
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
         ),
-        const SizedBox(width: 48),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Media & Incident Evidence',
-                style: TextStyle(
-                  color: widget.theme.colorScheme.onSurface,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  border: Border.all(color: widget.theme.dividerColor),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    DropdownButtonFormField<String>(
-                      key: ValueKey(_photoType),
-                      initialValue: _photoType,
-                      dropdownColor: widget.theme.cardColor,
-                      decoration: InputDecoration(
-                        labelText: 'Photo Type',
-                        filled: true,
-                        fillColor: widget.theme.cardColor,
-                      ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'DamageReport',
-                          child: Text('Damage Report'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'DeliveryProof',
-                          child: Text('Delivery Proof'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'General',
-                          child: Text('General Evidence'),
-                        ),
-                      ],
-                      onChanged: (v) => _photoType = v!,
-                    ),
-                    const SizedBox(height: 16),
-                    InkWell(
-                      onTap: _pickEvidenceFile,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          color:
-                              widget.theme.colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: widget.theme.dividerColor),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.attachment,
-                              color: widget.theme.primaryColor,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                _selectedPhotoFile != null
-                                    ? _selectedPhotoFile!.name
-                                    : 'Tap to browse and select image file...',
-                                style: TextStyle(
-                                  color: _selectedPhotoFile != null
-                                      ? widget.theme.colorScheme.onSurface
-                                      : widget.theme.disabledColor,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _photoNotesCtrl,
-                      decoration: InputDecoration(
-                        labelText: 'Admin Notes (Optional)',
-                        filled: true,
-                        fillColor: widget.theme.cardColor,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        icon: _isUploadingFile
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.upload_file),
-                        label: Text(
-                          _isUploadingFile ? 'Uploading...' : 'Attach Evidence',
-                        ),
-                        onPressed: () async {
-                          if (_selectedPhotoFile == null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Please select a file first.'),
-                              ),
-                            );
-                            return;
-                          }
-                          setState(() => _isUploadingFile = true);
-                          try {
-                            await Future.delayed(const Duration(seconds: 2));
-                            final uploadedUrl =
-                                'https://production-storage.com/evidence/${_selectedPhotoFile!.name}';
-                            widget.bloc.add(
-                              AddJobPhoto(
-                                requestId: currentJob.requestId,
-                                photoUrl: uploadedUrl,
-                                photoType: _photoType,
-                                notes: _photoNotesCtrl.text.isNotEmpty
-                                    ? _photoNotesCtrl.text
-                                    : null,
-                              ),
-                            );
-                            setState(() {
-                              _selectedPhotoFile = null;
-                              _photoNotesCtrl.clear();
-                            });
-                          } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Upload failed: $e')),
-                            );
-                          } finally {
-                            setState(() => _isUploadingFile = false);
-                          }
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: currentJob.photos.isEmpty
-                    ? Center(
-                        child: Text(
-                          'No evidence attached.',
-                          style: TextStyle(color: widget.theme.disabledColor),
-                        ),
-                      )
-                    : ListView.separated(
-                        itemCount: currentJob.photos.length,
-                        separatorBuilder: (_, __) => const Divider(),
-                        itemBuilder: (c, i) => ListTile(
-                          leading: const Icon(Icons.image, color: Colors.blue),
-                          title: Text(currentJob.photos[i].photoType),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                currentJob.photos[i].url,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              if (currentJob.photos[i].notes != null &&
-                                  currentJob.photos[i].notes!.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 4.0),
-                                  child: Text(
-                                    'Notes: ${currentJob.photos[i].notes}',
-                                    style: TextStyle(
-                                      fontStyle: FontStyle.italic,
-                                      color: widget
-                                          .theme
-                                          .colorScheme
-                                          .onSurfaceVariant,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-              ),
-            ],
+        const Divider(),
+        TextFormField(
+          controller: _baseCtrl,
+          decoration: const InputDecoration(labelText: 'New Base Price'),
+        ),
+        const SizedBox(height: 16),
+        FilledButton(
+          onPressed: () => widget.bloc.add(
+            OverrideJobPricing(
+              requestId: currentJob.requestId,
+              pricingData: {
+                'newBaseFare':
+                    double.tryParse(_baseCtrl.text) ?? currentJob.baseFare,
+              },
+            ),
           ),
+          child: const Text('Update Price'),
         ),
       ],
     );
-  }
-
-  Widget _buildProfileAccordion({
-    required String role,
-    required String name,
-    required String phone,
-    required Map<String, String> extraDetails,
-    required ThemeData theme,
-    required VoidCallback crmAction,
-  }) {
-    return Theme(
-      data: theme.copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        collapsedBackgroundColor: theme.cardColor,
-        backgroundColor: theme.cardColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.3)),
-        ),
-        collapsedShape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.3)),
-        ),
-        leading: CircleAvatar(
-          backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
-          child: Icon(Icons.person, color: theme.primaryColor),
-        ),
-        title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(role),
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.phone),
-                  title: const Text('Contact Number'),
-                  subtitle: Text(phone),
-                  trailing: OutlinedButton.icon(
-                    icon: const Icon(Icons.open_in_new),
-                    label: const Text('View Full CRM Profile'),
-                    onPressed: crmAction,
-                  ),
-                ),
-                const Divider(),
-                ...extraDetails.entries.map(
-                  (entry) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.info_outline),
-                    title: Text(entry.key),
-                    subtitle: Text(entry.value),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showFleetCommander(ActiveJobModel currentJob) {
-    showGeneralDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Dismiss',
-      pageBuilder: (ctx, _, __) => const SizedBox(),
-      transitionBuilder: (ctx, anim, _, child) {
-        return SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(1.0, 0.0),
-            end: Offset.zero,
-          ).animate(anim),
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: Material(
-              color: widget.theme.scaffoldBackgroundColor,
-              child: Container(
-                width: 450,
-                height: double.infinity,
-                decoration: BoxDecoration(
-                  border: Border(
-                    left: BorderSide(color: widget.theme.dividerColor),
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(32),
-                      color: widget.theme.cardColor,
-                      child: Row(
-                        children: [
-                          IconButton(
-                            icon: Icon(
-                              Icons.close,
-                              color: widget.theme.colorScheme.onSurface,
-                            ),
-                            onPressed: () => Navigator.pop(ctx),
-                          ),
-                          const SizedBox(width: 16),
-                          Text(
-                            'Fleet Commander',
-                            style: TextStyle(
-                              color: widget.theme.colorScheme.onSurface,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: ListView.separated(
-                        padding: const EdgeInsets.all(24),
-                        itemCount: widget.fleet.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 16),
-                        itemBuilder: (c, i) {
-                          final driver = widget.fleet[i];
-                          return ListTile(
-                            tileColor: widget.theme.cardColor,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            leading: CircleAvatar(
-                              backgroundColor: Colors.green.withValues(
-                                alpha: 0.2,
-                              ),
-                              child: const Icon(
-                                Icons.local_shipping,
-                                color: Colors.green,
-                              ),
-                            ),
-                            title: Text(
-                              driver.fullName,
-                              style: TextStyle(
-                                color: widget.theme.colorScheme.onSurface,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            subtitle: Text(
-                              '${driver.vehicle} • Available',
-                              style: const TextStyle(color: Colors.green),
-                            ),
-                            trailing: FilledButton(
-                              onPressed: () {
-                                widget.bloc.add(
-                                  AssignDriver(
-                                    requestId: currentJob.requestId,
-                                    driverId: driver.id,
-                                  ),
-                                );
-                                Navigator.pop(ctx);
-                              },
-                              child: const Text('Dispatch'),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Color _getStatusColor(int status) {
-    switch (status) {
-      case 0:
-        return Colors.orange;
-      case 1:
-        return Colors.blue;
-      case 2:
-        return Colors.purple;
-      case 3:
-        return Colors.green;
-      default:
-        return Colors.red;
-    }
   }
 }

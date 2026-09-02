@@ -38,11 +38,10 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
 
   void _addNode(String type) {
     String defaultTitle = type == 'question'
-        ? 'Customer Issue Prompt'
+        ? 'Customer Question'
         : type == 'condition'
-        ? 'Answer Match Trigger'
-        : 'Service Dispatch Terminal';
-
+        ? 'If Answer Is...'
+        : 'Assign Service';
     setState(() {
       nodes.add(
         DispatchNode(
@@ -65,7 +64,6 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
 
     int selectedServiceType = node.dispatchServiceType;
     int selectedTruckType = node.dispatchTruckType;
-
     String selectedCondQuestionId = node.conditionField;
     String selectedCondAnswer = node.conditionValue;
 
@@ -84,20 +82,17 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
               .toList();
 
           if (node.type == 'condition' && questionNodes.isNotEmpty) {
-            if (!questionNodes.any((q) => q.id == selectedCondQuestionId)) {
+            if (!questionNodes.any((q) => q.id == selectedCondQuestionId))
               selectedCondQuestionId = questionNodes.first.id;
-            }
             final parentQuestion = questionNodes.firstWhere(
               (q) => q.id == selectedCondQuestionId,
             );
-            if (!parentQuestion.options.contains(selectedCondAnswer)) {
+            if (!parentQuestion.options.contains(selectedCondAnswer))
               selectedCondAnswer = parentQuestion.options.isNotEmpty
                   ? parentQuestion.options.first
                   : '';
-            }
           }
 
-          // Safety check for dynamic service dropdown
           if (activeServices.isNotEmpty &&
               !activeServices.any(
                 (s) => s.serviceType == selectedServiceType,
@@ -126,7 +121,7 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                 ),
                 const SizedBox(width: 12),
                 Text(
-                  'Configure ${node.type.toUpperCase()}',
+                  'Edit ${node.type.toUpperCase()}',
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -134,8 +129,11 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                 ),
               ],
             ),
-            content: SizedBox(
-              width: 600,
+            content: Container(
+              constraints: const BoxConstraints(
+                maxWidth: 600,
+                maxHeight: 600,
+              ), // Responsive constraints added
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -145,8 +143,8 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                       controller: titleCtrl,
                       decoration: InputDecoration(
                         labelText: node.type == 'question'
-                            ? 'Question Prompt for Customer App'
-                            : 'Internal Workflow Label',
+                            ? 'Question for Customer App'
+                            : 'Box Title',
                         border: const OutlineInputBorder(),
                         filled: true,
                         fillColor: theme.cardColor,
@@ -155,10 +153,9 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                     ),
                     const SizedBox(height: 20),
 
-                    // --- QUESTION NODE ---
                     if (node.type == 'question') ...[
                       const Text(
-                        'Multiple Choice Answers',
+                        'Answers',
                         style: TextStyle(
                           color: Colors.blueAccent,
                           fontWeight: FontWeight.bold,
@@ -176,7 +173,7 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                                 child: TextFormField(
                                   controller: optionCtrls[idx],
                                   decoration: InputDecoration(
-                                    labelText: 'Choice ${idx + 1}',
+                                    labelText: 'Answer ${idx + 1}',
                                     border: const OutlineInputBorder(),
                                     filled: true,
                                     fillColor: theme.cardColor,
@@ -184,7 +181,6 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                                   style: const TextStyle(color: Colors.white),
                                 ),
                               ),
-                              const SizedBox(width: 8),
                               IconButton(
                                 icon: const Icon(
                                   Icons.delete,
@@ -204,18 +200,17 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                           color: Colors.blueAccent,
                         ),
                         label: const Text(
-                          'Add Answer Choice',
+                          'Add Answer',
                           style: TextStyle(color: Colors.blueAccent),
                         ),
                         onPressed: () => setModalState(
                           () => optionCtrls.add(
-                            TextEditingController(text: 'New Choice'),
+                            TextEditingController(text: 'New Answer'),
                           ),
                         ),
                       ),
                     ],
 
-                    // --- CONDITION NODE ---
                     if (node.type == 'condition') ...[
                       if (questionNodes.isEmpty)
                         Container(
@@ -225,13 +220,13 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Text(
-                            '⚠️ Add a Question Node to the workflow canvas first.',
+                            '⚠️ Add a Question box first.',
                             style: TextStyle(color: Colors.orangeAccent),
                           ),
                         )
                       else ...[
                         const Text(
-                          '1. Parent Question Node',
+                          '1. Which Question?',
                           style: TextStyle(
                             color: Colors.orangeAccent,
                             fontWeight: FontWeight.bold,
@@ -269,7 +264,7 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                         ),
                         const SizedBox(height: 16),
                         const Text(
-                          '2. Trigger If Customer Selects Answer...',
+                          '2. If Customer Chooses...',
                           style: TextStyle(
                             color: Colors.orangeAccent,
                             fontWeight: FontWeight.bold,
@@ -305,10 +300,9 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                       ],
                     ],
 
-                    // --- ACTION NODE ---
                     if (node.type == 'action') ...[
                       const Text(
-                        'Live Pricing Engine Services',
+                        'Service to Assign',
                         style: TextStyle(
                           color: Colors.greenAccent,
                           fontWeight: FontWeight.bold,
@@ -316,10 +310,9 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                         ),
                       ),
                       const SizedBox(height: 12),
-
                       if (activeServices.isEmpty)
                         const Text(
-                          '⚠️ No Active Services Found in Pricing Engine.',
+                          '⚠️ No Services Found.',
                           style: TextStyle(color: Colors.redAccent),
                         )
                       else
@@ -327,30 +320,31 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                           value: selectedServiceType,
                           dropdownColor: theme.cardColor,
                           decoration: InputDecoration(
-                            labelText: 'Pricing Engine Target *',
+                            labelText: 'Assign this Service *',
                             border: const OutlineInputBorder(),
                             filled: true,
                             fillColor: theme.cardColor,
                           ),
-                          items: activeServices.map((rule) {
-                            return DropdownMenuItem(
-                              value: rule.serviceType,
-                              child: Text(
-                                '${rule.ruleName} (Base: \$${rule.baseFare.toStringAsFixed(2)})',
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                            );
-                          }).toList(),
+                          items: activeServices
+                              .map(
+                                (rule) => DropdownMenuItem(
+                                  value: rule.serviceType,
+                                  child: Text(
+                                    '${rule.ruleName} (Base: \$${rule.baseFare.toStringAsFixed(2)})',
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                              )
+                              .toList(),
                           onChanged: (v) =>
                               setModalState(() => selectedServiceType = v!),
                         ),
                       const SizedBox(height: 16),
-
                       DropdownButtonFormField<int>(
                         value: selectedTruckType,
                         dropdownColor: theme.cardColor,
                         decoration: InputDecoration(
-                          labelText: 'Required Fleet Asset (Truck Class) *',
+                          labelText: 'Required Truck *',
                           border: const OutlineInputBorder(),
                           filled: true,
                           fillColor: theme.cardColor,
@@ -359,42 +353,42 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                           DropdownMenuItem(
                             value: 1,
                             child: Text(
-                              'Standard Wrecker (Wheel Lift)',
+                              'Wheel Lift',
                               style: TextStyle(color: Colors.white),
                             ),
                           ),
                           DropdownMenuItem(
                             value: 2,
                             child: Text(
-                              'Flatbed Rollback',
+                              'Flatbed',
                               style: TextStyle(color: Colors.white),
                             ),
                           ),
                           DropdownMenuItem(
                             value: 3,
                             child: Text(
-                              'Low Clearance / Underground Van',
+                              'Low Clearance Van',
                               style: TextStyle(color: Colors.white),
                             ),
                           ),
                           DropdownMenuItem(
                             value: 4,
                             child: Text(
-                              'Heavy Duty Rotator (Commercial)',
+                              'Heavy Duty Truck',
                               style: TextStyle(color: Colors.white),
                             ),
                           ),
                           DropdownMenuItem(
                             value: 5,
                             child: Text(
-                              'Light Service Vehicle (No Towing)',
+                              'Service Vehicle (No Towing)',
                               style: TextStyle(color: Colors.white),
                             ),
                           ),
                           DropdownMenuItem(
                             value: 6,
                             child: Text(
-                              'Motorcycle Dedicated Trailer',
+                              'Motorcycle Trailer',
                               style: TextStyle(color: Colors.white),
                             ),
                           ),
@@ -403,14 +397,13 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                             setModalState(() => selectedTruckType = v!),
                       ),
                       const SizedBox(height: 16),
-
                       TextFormField(
                         controller: surchargeCtrl,
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
                         decoration: InputDecoration(
-                          labelText: 'Additional Surcharge Override (\$)',
+                          labelText: 'Extra Fee (\$)',
                           prefixIcon: const Icon(
                             Icons.attach_money,
                             color: Colors.greenAccent,
@@ -422,13 +415,12 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                         style: const TextStyle(color: Colors.white),
                       ),
                       const SizedBox(height: 16),
-
                       TextFormField(
                         controller: notesCtrl,
                         maxLines: 2,
                         decoration: InputDecoration(
-                          labelText: 'Automated Dispatch Notes to Driver',
-                          hintText: 'e.g. Bring extra low-clearance dollies',
+                          labelText: 'Notes to Driver',
+                          hintText: 'e.g. Bring extra dollies',
                           border: const OutlineInputBorder(),
                           filled: true,
                           fillColor: theme.cardColor,
@@ -470,7 +462,7 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                   });
                   Navigator.pop(ctx);
                 },
-                child: const Text('Save Node Configuration'),
+                child: const Text('Save Box'),
               ),
             ],
           );
@@ -496,7 +488,7 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
-          'Publish Workflow Standard',
+          'Save Workflow',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         content: Column(
@@ -504,15 +496,14 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Provide version notes for the immutable dispatch audit log:',
+              'Add a note for your team about what changed:',
               style: TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: descCtrl,
               decoration: InputDecoration(
-                labelText:
-                    'Version Summary (e.g. Added motorcycle tow routing)',
+                labelText: 'Notes (e.g. Added motorcycle questions)',
                 border: const OutlineInputBorder(),
                 filled: true,
                 fillColor: Theme.of(context).cardColor,
@@ -533,7 +524,7 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
             ),
             icon: const Icon(Icons.publish),
             label: const Text(
-              'Publish & Broadcast',
+              'Save & Publish',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             onPressed: () {
@@ -576,7 +567,7 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
         backgroundColor: theme.cardColor,
         elevation: 2,
         title: Text(
-          'Smart Dispatch Builder - $currentVersionLabel',
+          'Dispatch Workflow - $currentVersionLabel',
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -603,7 +594,7 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
           TextButton.icon(
             icon: const Icon(Icons.local_shipping, color: Colors.greenAccent),
             label: const Text(
-              'Add Terminal Action',
+              'Assign Service',
               style: TextStyle(color: Colors.greenAccent),
             ),
             onPressed: () => _addNode('action'),
@@ -616,7 +607,7 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
             ),
             icon: const Icon(Icons.save),
             label: const Text(
-              'Publish Workflow',
+              'Save Workflow',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             onPressed: () => _saveGraph(context),
@@ -624,7 +615,7 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
           const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.history, color: Colors.white),
-            tooltip: 'Version History',
+            tooltip: 'View History',
             onPressed: () {
               context.read<DispatchRulesBloc>().add(FetchRulesHistoryEvent());
               _scaffoldKey.currentState?.openEndDrawer();
@@ -636,49 +627,45 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
       endDrawer: _buildHistoryDrawer(),
       body: BlocConsumer<DispatchRulesBloc, DispatchRulesState>(
         listener: (context, state) {
-          if (state is RulesSaveSuccess) {
+          if (state is RulesSaveSuccess)
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Logic Workflow Broadcasted!'),
+                content: Text('Workflow Saved!'),
                 backgroundColor: Colors.green,
               ),
             );
-          } else if (state is RulesError) {
+          else if (state is RulesError)
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
                 backgroundColor: Colors.red,
               ),
             );
-          } else if (state is RulesLoaded) {
+          else if (state is RulesLoaded) {
             setState(() {
               nodes = List.from(state.nodes);
               edges = List.from(state.edges);
               activeServices = state.activeServices;
               currentVersionLabel = "v${state.activeVersion ?? '1.0'}";
-
-              if (nodes.isEmpty) {
+              if (nodes.isEmpty)
                 nodes.add(
                   DispatchNode(
                     id: 'start_node',
-                    title: 'Primary Issue Survey',
+                    title: 'Main Issue',
                     type: 'question',
                     x: 100,
                     y: 300,
                     options: ['Tire Blown', 'Car Won\'t Start', 'Locked Out'],
                   ),
                 );
-              }
             });
           }
         },
         buildWhen: (prev, current) =>
             current is RulesLoading || current is RulesLoaded,
         builder: (context, state) {
-          if (state is RulesLoading && nodes.isEmpty) {
+          if (state is RulesLoading && nodes.isEmpty)
             return const Center(child: CircularProgressIndicator());
-          }
-
           return Stack(
             children: [
               InteractiveViewer(
@@ -691,13 +678,10 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                   height: 10000,
                   child: Stack(
                     children: [
-                      // 1. The Line Painter
                       CustomPaint(
                         size: const Size(10000, 10000),
                         painter: EdgePainter(nodes: nodes, edges: edges),
                       ),
-
-                      // 2. --- NEW: DYNAMIC EDGE DELETION BUTTONS ---
                       ...edges.map((edge) {
                         final fromNode = nodes.cast<DispatchNode?>().firstWhere(
                           (n) => n?.id == edge.fromNodeId,
@@ -707,21 +691,16 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                           (n) => n?.id == edge.toNodeId,
                           orElse: () => null,
                         );
-
                         if (fromNode == null || toNode == null)
                           return const SizedBox.shrink();
-
-                        // Calculate the exact midpoint of the Bezier curve
                         final startX = fromNode.x + 200;
                         final startY = fromNode.y + 50;
                         final endX = toNode.x;
                         final endY = toNode.y + 50;
-
                         final midX = (startX + endX) / 2;
                         final midY = (startY + endY) / 2;
-
                         return Positioned(
-                          left: midX - 16, // Center the 32x32 button
+                          left: midX - 16,
                           top: midY - 16,
                           child: InkWell(
                             onTap: () {
@@ -739,13 +718,6 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                                   color: Colors.white,
                                   width: 2,
                                 ),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Colors.black54,
-                                    blurRadius: 4,
-                                    offset: Offset(0, 2),
-                                  ),
-                                ],
                               ),
                               child: const Icon(
                                 Icons.close,
@@ -756,8 +728,6 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                           ),
                         );
                       }),
-
-                      // 3. The Draggable Nodes
                       ...nodes.map((node) {
                         return Positioned(
                           left: node.x,
@@ -792,7 +762,7 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                     child: Row(
                       children: [
                         const Text(
-                          'Click target node to link connection route...',
+                          'Click target box to link...',
                           style: TextStyle(
                             color: Colors.amber,
                             fontWeight: FontWeight.bold,
@@ -829,7 +799,7 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
             Padding(
               padding: const EdgeInsets.all(24.0),
               child: Text(
-                'Version History Ledger',
+                'Version History',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
@@ -843,15 +813,13 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                     current is RulesHistoryLoaded || current is RulesLoading,
                 builder: (context, state) {
                   if (state is RulesHistoryLoaded) {
-                    if (state.history.isEmpty) {
+                    if (state.history.isEmpty)
                       return const Center(
                         child: Text(
                           'No version records found.',
                           style: TextStyle(color: Colors.grey),
                         ),
                       );
-                    }
-
                     return ListView.separated(
                       padding: const EdgeInsets.all(16),
                       itemCount: state.history.length,
@@ -950,13 +918,6 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                 : _getNodeHeaderColor(node.type),
             width: isSelected ? 3 : 2,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
         ),
         child: Column(
           children: [
@@ -990,7 +951,6 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      // --- UPGRADED CLOSE ICON ---
                       if (node.id != 'start_node')
                         InkWell(
                           onTap: () => _deleteNode(node.id),

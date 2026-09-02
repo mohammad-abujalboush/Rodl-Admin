@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:roadside_service/features/Marketing/presentation/screen/marketing_management_screen.dart';
+import 'package:roadside_service/features/Marketing/presentation/screen/promotions_screen.dart';
+import 'package:roadside_service/features/audit_logs/presentation/screens/audit_logs_screen.dart';
 import 'package:roadside_service/features/communication/presentation/call_management_screen.dart';
 import 'package:roadside_service/features/drivers_management/presentation/screens/driver_management_screen.dart';
 import 'package:roadside_service/features/financial_overview/data/api_data.dart';
 import 'package:roadside_service/features/financial_overview/presentation/financial_overview_screen.dart';
 import 'package:roadside_service/features/invoices/presentation/presentation/invoices_screen.dart';
+import 'package:roadside_service/features/policies/presentation/screens/policy_hub_screen.dart';
 import 'package:roadside_service/features/staff_management/presentation/screen/staff_management_screen.dart';
 import '../api/secure_storage_helper.dart';
 import '../di/injection_container.dart';
@@ -129,6 +132,18 @@ class AppRouter {
           GoRoute(
             path: '/marketing',
             builder: (context, state) => const MarketingManagementScreen(),
+          ),
+          GoRoute(
+            path: '/promotions',
+            builder: (context, state) => const PromotionsScreen(),
+          ),
+          GoRoute(
+            path: '/policy-hub',
+            builder: (context, state) => const PolicyHubScreen(),
+          ),
+          GoRoute(
+            path: '/audit-logs',
+            builder: (context, state) => const AuditLogsScreen(),
           ),
         ],
       ),

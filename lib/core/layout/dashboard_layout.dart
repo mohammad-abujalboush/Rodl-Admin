@@ -73,7 +73,6 @@ class _DashboardSidebar extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // --- UPGRADED SIDEBAR LOGO ---
                 Image.asset('assets/images/app-icon.jpeg', height: 40),
                 const SizedBox(height: 12),
                 Text(
@@ -93,7 +92,7 @@ class _DashboardSidebar extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 16),
               children: [
-                const _SidebarSectionTitle(title: 'OPERATIONS'),
+                const _SidebarSectionTitle(title: 'Operations'),
                 _SidebarItem(
                   icon: Icons.dashboard,
                   title: 'Home',
@@ -106,16 +105,16 @@ class _DashboardSidebar extends StatelessWidget {
                 ),
                 _SidebarItem(
                   icon: Icons.local_shipping,
-                  title: 'Active Jobs',
+                  title: 'All Jobs',
                   onTap: () => context.go('/active-jobs'),
                 ),
 
-                const SizedBox(height: 16),
-                const _SidebarSectionTitle(title: 'FINANCE'),
+                const _SidebarDivider(),
+                const _SidebarSectionTitle(title: 'Finance'),
 
                 _SidebarItem(
                   icon: Icons.money,
-                  title: 'Financial Overview',
+                  title: 'Overview',
                   onTap: () => context.go('/financial-overview'),
                 ),
                 _SidebarItem(
@@ -123,15 +122,15 @@ class _DashboardSidebar extends StatelessWidget {
                   title: 'Payroll',
                   onTap: () => context.go('/payroll'),
                 ),
-
                 _SidebarItem(
                   icon: Icons.receipt_long,
                   title: 'Invoices',
                   onTap: () => context.go('/invoices'),
                 ),
-                const SizedBox(height: 16),
 
-                const _SidebarSectionTitle(title: 'TEAM'),
+                const _SidebarDivider(),
+                const _SidebarSectionTitle(title: 'Team'),
+
                 _SidebarItem(
                   icon: Icons.people,
                   title: 'Drivers',
@@ -142,62 +141,76 @@ class _DashboardSidebar extends StatelessWidget {
                   title: 'Employees',
                   onTap: () => context.go('/staff-management'),
                 ),
-                const SizedBox(height: 16),
-                const _SidebarSectionTitle(title: 'Customer Management'),
+
+                const _SidebarDivider(),
+                const _SidebarSectionTitle(title: 'Customers'),
+
                 _SidebarItem(
                   icon: Icons.contacts,
-                  title: 'Customers',
+                  title: 'Customer List',
                   onTap: () => context.go('/crm'),
                 ),
 
-                const SizedBox(height: 16),
-                const _SidebarSectionTitle(title: 'HISTORY & SUPPORT'),
+                const _SidebarDivider(),
+                const _SidebarSectionTitle(title: 'Support & Logs'),
 
                 _SidebarItem(
                   icon: Icons.support_agent,
-                  title: 'Support',
+                  title: 'Helpdesk',
                   onTap: () => context.go('/helpdesk'),
                 ),
                 _SidebarItem(
                   icon: Icons.history,
-                  title: 'Job History',
+                  title: 'Activity Logs',
+                  onTap: () => context.go('/audit-logs'),
+                ),
+                _SidebarItem(
+                  icon: Icons.report_problem,
+                  title: 'Incident Reports',
                   onTap: () => context.go('/incidents'),
                 ),
 
-                const SizedBox(height: 16),
+                const _SidebarDivider(),
                 const _SidebarSectionTitle(title: 'Marketing'),
 
                 _SidebarItem(
                   icon: Icons.campaign,
-                  title: 'Social Campigns',
+                  title: 'Ad Campaigns',
                   onTap: () => context.go('/marketing'),
                 ),
                 _SidebarItem(
-                  icon: Icons.featured_play_list_outlined,
-                  title: 'Promotions',
-                  onTap: () => context.go('/marketing'),
+                  icon: Icons.local_offer,
+                  title: 'Promo Codes',
+                  onTap: () => context.go('/promotions'),
                 ),
 
-                const _SidebarSectionTitle(title: 'SYSTEM'),
+                const _SidebarDivider(),
+                const _SidebarSectionTitle(title: 'System Settings'),
+
                 _SidebarItem(
                   icon: Icons.settings,
-                  title: 'Settings',
+                  title: 'General Settings',
                   onTap: () => context.go('/settings'),
                 ),
                 _SidebarItem(
                   icon: Icons.price_change,
-                  title: 'Price Engine',
+                  title: 'Pricing Rules',
                   onTap: () => context.go('/pricing'),
                 ),
                 _SidebarItem(
                   icon: Icons.question_answer,
-                  title: 'Smart Questions',
+                  title: 'Dispatch Questions',
                   onTap: () => context.go('/dispatch-builder'),
                 ),
                 _SidebarItem(
                   icon: Icons.call,
-                  title: 'Call Management',
+                  title: 'Call Center',
                   onTap: () => context.go('/call-management'),
+                ),
+                _SidebarItem(
+                  icon: Icons.gavel,
+                  title: 'Legal Documents',
+                  onTap: () => context.go('/policy-hub'),
                 ),
               ],
             ),
@@ -209,7 +222,6 @@ class _DashboardSidebar extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 8.0),
             child: Column(
               children: [
-                // --- THEME TOGGLE BUTTON DIRECTLY LINKED TO APP_THEME ---
                 ValueListenableBuilder<ThemeMode>(
                   valueListenable: AppTheme.themeNotifier,
                   builder: (context, currentTheme, _) {
@@ -221,8 +233,6 @@ class _DashboardSidebar extends StatelessWidget {
                     );
                   },
                 ),
-
-                // --- SECURE LOGOUT ---
                 _SidebarItem(
                   icon: Icons.logout,
                   title: 'Log Out',
@@ -242,6 +252,22 @@ class _DashboardSidebar extends StatelessWidget {
   }
 }
 
+// --- NEW REUSABLE FADED DIVIDER ---
+class _SidebarDivider extends StatelessWidget {
+  const _SidebarDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 8.0),
+      child: Divider(
+        height: 1,
+        color: Theme.of(context).dividerColor.withOpacity(0.15),
+      ),
+    );
+  }
+}
+
 class _SidebarSectionTitle extends StatelessWidget {
   final String title;
   const _SidebarSectionTitle({required this.title});
@@ -251,10 +277,10 @@ class _SidebarSectionTitle extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(left: 24, bottom: 8, top: 8),
       child: Text(
-        title,
+        title.toUpperCase(),
         style: TextStyle(
-          color: Theme.of(context).disabledColor,
-          fontSize: 12,
+          color: Theme.of(context).disabledColor.withOpacity(0.6),
+          fontSize: 11,
           fontWeight: FontWeight.bold,
           letterSpacing: 1.2,
         ),
@@ -281,19 +307,19 @@ class _SidebarItem extends StatelessWidget {
     final theme = Theme.of(context);
     final color = isDestructive
         ? theme.colorScheme.error
-        : theme.colorScheme.onSurface.withOpacity(0.7);
+        : theme.colorScheme.onSurface.withOpacity(0.75);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       child: ListTile(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        leading: Icon(icon, color: color, size: 22),
+        leading: Icon(icon, color: color, size: 20),
         title: Text(
           title,
           style: TextStyle(
             color: color,
             fontWeight: FontWeight.w600,
-            fontSize: 15,
+            fontSize: 14,
           ),
         ),
         hoverColor: theme.primaryColor.withOpacity(0.05),
