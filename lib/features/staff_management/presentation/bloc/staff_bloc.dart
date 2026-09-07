@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:dio/dio.dart';
 import '../../../../core/api/dio_client.dart';
 
 // --- MODEL ---
@@ -45,29 +46,44 @@ class FetchStaff extends StaffEvent {}
 class AddStaffMember extends StaffEvent {
   final Map<String, dynamic> staffData;
   AddStaffMember(this.staffData);
+
+  @override
+  List<Object> get props => [staffData];
 }
 
 class EditStaffMember extends StaffEvent {
   final String staffId;
   final Map<String, dynamic> staffData;
   EditStaffMember(this.staffId, this.staffData);
+
+  @override
+  List<Object> get props => [staffId, staffData];
 }
 
 class UpdatePermissions extends StaffEvent {
   final String staffId;
   final List<String> permissions;
   UpdatePermissions(this.staffId, this.permissions);
+
+  @override
+  List<Object> get props => [staffId, permissions];
 }
 
 class ToggleStaffStatus extends StaffEvent {
   final String staffId;
   final bool isActive;
   ToggleStaffStatus(this.staffId, this.isActive);
+
+  @override
+  List<Object> get props => [staffId, isActive];
 }
 
 class DeleteStaffMember extends StaffEvent {
   final String staffId;
   DeleteStaffMember(this.staffId);
+
+  @override
+  List<Object> get props => [staffId];
 }
 
 // --- STATES ---
@@ -81,6 +97,7 @@ class StaffLoading extends StaffState {}
 class StaffLoaded extends StaffState {
   final List<StaffMemberModel> staff;
   StaffLoaded(this.staff);
+
   @override
   List<Object> get props => [staff];
 }
@@ -88,11 +105,17 @@ class StaffLoaded extends StaffState {
 class StaffError extends StaffState {
   final String message;
   StaffError(this.message);
+
+  @override
+  List<Object> get props => [message];
 }
 
 class StaffSuccess extends StaffState {
   final String message;
   StaffSuccess(this.message);
+
+  @override
+  List<Object> get props => [message];
 }
 
 // --- BLOC ---
@@ -108,7 +131,14 @@ class StaffManagementBloc extends Bloc<StaffEvent, StaffState> {
             .map((j) => StaffMemberModel.fromJson(j))
             .toList();
         emit(StaffLoaded(staff));
-      } catch (e) {
+      } on DioException catch (e) {
+        emit(
+          StaffError(
+            e.response?.data?['message'] ??
+                'Failed to fetch employee directory.',
+          ),
+        );
+      } catch (_) {
         emit(StaffError('Failed to fetch employee directory.'));
       }
     });
@@ -119,9 +149,19 @@ class StaffManagementBloc extends Bloc<StaffEvent, StaffState> {
           '/api/admin/create-employee',
           data: event.staffData,
         );
-        emit(StaffSuccess(res.data['message'] ?? 'Employee created.'));
+        emit(
+          StaffSuccess(
+            res.data?['message'] ?? 'Employee created successfully.',
+          ),
+        );
         add(FetchStaff());
-      } catch (e) {
+      } on DioException catch (e) {
+        emit(
+          StaffError(
+            e.response?.data?['message'] ?? 'Failed to create employee.',
+          ),
+        );
+      } catch (_) {
         emit(StaffError('Failed to create employee.'));
       }
     });
@@ -132,9 +172,17 @@ class StaffManagementBloc extends Bloc<StaffEvent, StaffState> {
           '/api/admin/staff/${event.staffId}',
           data: event.staffData,
         );
-        emit(StaffSuccess(res.data['message'] ?? 'Profile updated.'));
+        emit(
+          StaffSuccess(res.data?['message'] ?? 'Profile updated successfully.'),
+        );
         add(FetchStaff());
-      } catch (e) {
+      } on DioException catch (e) {
+        emit(
+          StaffError(
+            e.response?.data?['message'] ?? 'Failed to update employee.',
+          ),
+        );
+      } catch (_) {
         emit(StaffError('Failed to update employee.'));
       }
     });
@@ -145,9 +193,15 @@ class StaffManagementBloc extends Bloc<StaffEvent, StaffState> {
           '/api/admin/staff/${event.staffId}/permissions',
           data: {'permissions': event.permissions},
         );
-        emit(StaffSuccess('RBAC permissions saved.'));
+        emit(StaffSuccess('RBAC permissions saved successfully.'));
         add(FetchStaff());
-      } catch (e) {
+      } on DioException catch (e) {
+        emit(
+          StaffError(
+            e.response?.data?['message'] ?? 'Failed to update permissions.',
+          ),
+        );
+      } catch (_) {
         emit(StaffError('Failed to update permissions.'));
       }
     });
@@ -164,8 +218,14 @@ class StaffManagementBloc extends Bloc<StaffEvent, StaffState> {
           ),
         );
         add(FetchStaff());
-      } catch (e) {
-        emit(StaffError('Failed to update status.'));
+      } on DioException catch (e) {
+        emit(
+          StaffError(
+            e.response?.data?['message'] ?? 'Failed to update account status.',
+          ),
+        );
+      } catch (_) {
+        emit(StaffError('Failed to update account status.'));
       }
     });
 
@@ -174,7 +234,13 @@ class StaffManagementBloc extends Bloc<StaffEvent, StaffState> {
         await dioClient.dio.delete('/api/admin/staff/${event.staffId}');
         emit(StaffSuccess('Employee permanently deleted.'));
         add(FetchStaff());
-      } catch (e) {
+      } on DioException catch (e) {
+        emit(
+          StaffError(
+            e.response?.data?['message'] ?? 'Failed to delete employee.',
+          ),
+        );
+      } catch (_) {
         emit(StaffError('Failed to delete employee.'));
       }
     });

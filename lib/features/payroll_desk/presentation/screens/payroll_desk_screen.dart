@@ -39,10 +39,10 @@ class _PayrollDeskScreenState extends State<PayrollDeskScreen>
     return BlocProvider(
       create: (_) => sl<PayrollDeskBloc>()..add(FetchPayrollPreview()),
       child: Scaffold(
-        backgroundColor: theme.scaffoldBackgroundColor,
+        backgroundColor: theme.scaffoldBackgroundColor, // Light mode compliant
         body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(24.0),
+            padding: const EdgeInsets.all(32.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -54,28 +54,37 @@ class _PayrollDeskScreenState extends State<PayrollDeskScreen>
                     return Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Payroll & Settlement Desk',
-                              style: theme.textTheme.headlineMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: theme.primaryColor,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Payroll & Settlement Desk',
+                                style: theme.textTheme.headlineMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.colorScheme.onSurface,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Manage driver earnings, manual adjustments, and batch wire transfers.',
-                              style: TextStyle(color: theme.disabledColor),
-                            ),
-                          ],
+                              const SizedBox(height: 8),
+                              Text(
+                                'Manage driver earnings, manual adjustments, and batch wire transfers.',
+                                style: TextStyle(
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.6,
+                                  ),
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                         Row(
                           children: [
                             IconButton(
                               icon: const Icon(Icons.refresh),
                               tooltip: 'Refresh Ledger',
+                              color: theme.colorScheme.onSurface,
                               onPressed: () => context
                                   .read<PayrollDeskBloc>()
                                   .add(FetchPayrollPreview()),
@@ -93,6 +102,9 @@ class _PayrollDeskScreenState extends State<PayrollDeskScreen>
                                   horizontal: 24,
                                   vertical: 18,
                                 ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                               ),
                               onPressed: hasPending
                                   ? () => _showExecutePayrollModal(
@@ -107,7 +119,7 @@ class _PayrollDeskScreenState extends State<PayrollDeskScreen>
                     );
                   },
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 32),
 
                 // --- TABS ---
                 TabBar(
@@ -126,7 +138,7 @@ class _PayrollDeskScreenState extends State<PayrollDeskScreen>
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
 
                 // --- CONTENT ---
                 Expanded(
@@ -158,14 +170,12 @@ class _PayrollDeskScreenState extends State<PayrollDeskScreen>
                         return TabBarView(
                           controller: _tabController,
                           children: [
-                            // TAB 1: UNPAID ACTIVE LEDGER
                             _buildActiveLedgerTab(
                               context,
                               state,
                               theme,
                               currencyFormat,
                             ),
-                            // TAB 2: EXECUTED BATCH HISTORY
                             _buildHistoryTab(
                               state.history,
                               theme,
@@ -198,12 +208,23 @@ class _PayrollDeskScreenState extends State<PayrollDeskScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // SUMMARY CARDS
-        ResponsiveBuilder(
-          builder: (context, sizingInfo) {
-            return Row(
+        // SUMMARY CARDS (FIXED TO BE RESPONSIVE)
+        LayoutBuilder(
+          builder: (context, constraints) {
+            double spacing = 16.0;
+            int columns = constraints.maxWidth > 800
+                ? 3
+                : (constraints.maxWidth > 500 ? 2 : 1);
+            double cardWidth =
+                (constraints.maxWidth - (spacing * (columns - 1))) / columns -
+                0.1;
+
+            return Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
               children: [
-                Expanded(
+                SizedBox(
+                  width: cardWidth,
                   child: _SummaryCard(
                     title: 'Total Net to Transfer',
                     value: currencyFormat.format(state.totalNetPayout),
@@ -211,28 +232,27 @@ class _PayrollDeskScreenState extends State<PayrollDeskScreen>
                     isPrimary: true,
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
+                SizedBox(
+                  width: cardWidth,
                   child: _SummaryCard(
                     title: 'Platform Commission Retained',
                     value: currencyFormat.format(state.totalPlatformFees),
                     icon: Icons.pie_chart,
                   ),
                 ),
-                if (!sizingInfo.isMobile) const SizedBox(width: 16),
-                if (!sizingInfo.isMobile)
-                  Expanded(
-                    child: _SummaryCard(
-                      title: 'Drivers to Pay',
-                      value: state.payouts.length.toString(),
-                      icon: Icons.people,
-                    ),
+                SizedBox(
+                  width: cardWidth,
+                  child: _SummaryCard(
+                    title: 'Drivers to Pay',
+                    value: state.payouts.length.toString(),
+                    icon: Icons.people,
                   ),
+                ),
               ],
             );
           },
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 32),
 
         // INDIVIDUAL BREAKDOWN
         Row(
@@ -241,12 +261,13 @@ class _PayrollDeskScreenState extends State<PayrollDeskScreen>
               'Individual Payout Breakdown ',
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
               ),
             ),
             Text(
               '(Click row to view line items & apply holds)',
               style: theme.textTheme.titleMedium?.copyWith(
-                color: theme.disabledColor,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
               ),
             ),
             if (state.isDetailsLoading)
@@ -260,7 +281,7 @@ class _PayrollDeskScreenState extends State<PayrollDeskScreen>
               ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         Expanded(
           child: _buildDesktopTable(
             context,
@@ -289,30 +310,49 @@ class _PayrollDeskScreenState extends State<PayrollDeskScreen>
     }
 
     return Card(
-      elevation: 2,
+      elevation: 0,
+      color: theme.cardColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.3)),
+      ),
       child: ListView.separated(
         itemCount: history.length,
-        separatorBuilder: (_, __) => const Divider(height: 1),
+        separatorBuilder: (_, __) => Divider(
+          height: 1,
+          color: theme.dividerColor.withValues(alpha: 0.3),
+        ),
         itemBuilder: (context, index) {
           final item = history[index];
           return ListTile(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 12,
+            ),
             leading: CircleAvatar(
-              backgroundColor: Colors.green.withOpacity(0.1),
+              backgroundColor: Colors.green.withValues(alpha: 0.1),
               child: const Icon(Icons.check, color: Colors.green),
             ),
             title: Text(
               '${item.driverName} • ${format.format(item.totalAmount)}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+              ),
             ),
             subtitle: Text(
               'Wire Ref: ${item.batchReference} | ${DateFormat('MMM dd, yyyy - HH:mm').format(item.processedAt)}',
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
             ),
             trailing: Chip(
               label: Text(
                 '${item.jobsIncluded} Items Locked',
                 style: const TextStyle(fontSize: 12),
               ),
-              backgroundColor: theme.primaryColor.withOpacity(0.08),
+              backgroundColor: theme.primaryColor.withValues(alpha: 0.08),
+              side: BorderSide.none,
             ),
           );
         },
@@ -332,12 +372,15 @@ class _PayrollDeskScreenState extends State<PayrollDeskScreen>
             'Ledgers are Clear',
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.bold,
+              color: theme.colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'All drivers have been paid for completed jobs.',
-            style: TextStyle(color: theme.disabledColor),
+            style: TextStyle(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
           ),
         ],
       ),
@@ -352,107 +395,138 @@ class _PayrollDeskScreenState extends State<PayrollDeskScreen>
     NumberFormat format,
   ) {
     return Card(
-      elevation: 2,
+      elevation: 0,
+      color: theme.cardColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.3)),
+      ),
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
         width: double.infinity,
         child: SingleChildScrollView(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              showCheckboxColumn: false,
-              headingRowColor: WidgetStateProperty.resolveWith(
-                (states) => theme.primaryColor.withOpacity(0.05),
-              ),
-              dataRowMaxHeight: 65,
-              columns: const [
-                DataColumn(
-                  label: Text(
-                    'Driver Name',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                DataColumn(
-                  label: Text(
-                    'Completed Jobs',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                DataColumn(
-                  label: Text(
-                    'Gross Earnings',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                DataColumn(
-                  label: Text(
-                    'Platform Fee (-)',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                DataColumn(
-                  label: Text(
-                    'Net Payout (Owed)',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-              rows: payouts.map((p) {
-                return DataRow(
-                  onSelectChanged: (_) {
-                    final bloc = context.read<PayrollDeskBloc>();
-                    bloc.add(FetchDriverPayoutDetails(driverId: p.driverId));
-                    _openReactiveDriverModal(context, bloc, p.driverId);
-                  },
-                  cells: [
-                    DataCell(
-                      Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 16,
-                            backgroundColor: theme.primaryColor.withOpacity(
-                              0.1,
-                            ),
-                            child: Text(
-                              p.driverName.isNotEmpty
-                                  ? p.driverName[0].toUpperCase()
-                                  : 'D',
-                              style: TextStyle(
-                                color: theme.primaryColor,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            p.driverName,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
-                    ),
-                    DataCell(Text(p.totalJobsCompleted.toString())),
-                    DataCell(Text(format.format(p.grossEarnings))),
-                    DataCell(
-                      Text(
-                        format.format(p.platformFee),
-                        style: TextStyle(color: theme.colorScheme.error),
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        format.format(p.netPayout),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green.shade700,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              }).toList(),
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            showCheckboxColumn: false,
+            headingRowColor: WidgetStateProperty.resolveWith(
+              (states) => theme.primaryColor.withValues(alpha: 0.05),
             ),
+            dataRowMaxHeight: 70,
+            columns: [
+              DataColumn(
+                label: Text(
+                  'Driver Name',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+              ),
+              DataColumn(
+                label: Text(
+                  'Completed Jobs',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+              ),
+              DataColumn(
+                label: Text(
+                  'Gross Earnings',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+              ),
+              DataColumn(
+                label: Text(
+                  'Platform Fee (-)',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+              ),
+              DataColumn(
+                label: Text(
+                  'Net Payout (Owed)',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+              ),
+            ],
+            rows: payouts.map((p) {
+              return DataRow(
+                onSelectChanged: (_) {
+                  final bloc = context.read<PayrollDeskBloc>();
+                  bloc.add(FetchDriverPayoutDetails(driverId: p.driverId));
+                  _openReactiveDriverModal(context, bloc, p.driverId);
+                },
+                cells: [
+                  DataCell(
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 16,
+                          backgroundColor: theme.primaryColor.withValues(
+                            alpha: 0.1,
+                          ),
+                          child: Text(
+                            p.driverName.isNotEmpty
+                                ? p.driverName[0].toUpperCase()
+                                : 'D',
+                            style: TextStyle(
+                              color: theme.primaryColor,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          p.driverName,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  DataCell(
+                    Text(
+                      p.totalJobsCompleted.toString(),
+                      style: TextStyle(color: theme.colorScheme.onSurface),
+                    ),
+                  ),
+                  DataCell(
+                    Text(
+                      format.format(p.grossEarnings),
+                      style: TextStyle(color: theme.colorScheme.onSurface),
+                    ),
+                  ),
+                  DataCell(
+                    Text(
+                      format.format(p.platformFee),
+                      style: TextStyle(color: theme.colorScheme.error),
+                    ),
+                  ),
+                  DataCell(
+                    Text(
+                      format.format(p.netPayout),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green.shade700,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
           ),
         ),
       ),
@@ -479,7 +553,7 @@ class _PayrollDeskScreenState extends State<PayrollDeskScreen>
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(24.0),
+            padding: const EdgeInsets.all(32.0),
             child: BlocBuilder<PayrollDeskBloc, PayrollDeskState>(
               bloc: bloc,
               builder: (context, state) {
@@ -496,10 +570,18 @@ class _PayrollDeskScreenState extends State<PayrollDeskScreen>
                           Text(
                             '${details.driverName} - Ledger Details',
                             style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(fontWeight: FontWeight.bold),
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.close),
+                            icon: Icon(
+                              Icons.close,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
                             onPressed: () => Navigator.pop(modalContext),
                           ),
                         ],
@@ -512,21 +594,39 @@ class _PayrollDeskScreenState extends State<PayrollDeskScreen>
                           fontSize: 18,
                         ),
                       ),
-                      const Divider(height: 32),
+                      const Divider(height: 40),
 
                       Expanded(
                         child: details.lineItems.isEmpty
-                            ? const Center(
-                                child: Text("No unpaid items found."),
+                            ? Center(
+                                child: Text(
+                                  "No unpaid items found.",
+                                  style: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
+                                  ),
+                                ),
                               )
-                            : ListView.builder(
+                            : ListView.separated(
                                 itemCount: details.lineItems.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 8),
                                 itemBuilder: (context, index) {
                                   final item = details.lineItems[index];
                                   return Card(
                                     color: item.isOnHold
                                         ? Colors.orange.shade50
-                                        : null,
+                                        : Theme.of(context).cardColor,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      side: BorderSide(
+                                        color: Theme.of(
+                                          context,
+                                        ).dividerColor.withValues(alpha: 0.2),
+                                      ),
+                                    ),
+                                    elevation: 0,
                                     child: ListTile(
                                       title: Text(
                                         item.description,
@@ -535,10 +635,23 @@ class _PayrollDeskScreenState extends State<PayrollDeskScreen>
                                               ? TextDecoration.lineThrough
                                               : null,
                                           fontWeight: FontWeight.bold,
+                                          color: item.isOnHold
+                                              ? Colors.black54
+                                              : Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurface,
                                         ),
                                       ),
                                       subtitle: Text(
                                         'Gross: ${currencyFormat.format(item.grossAmount)} | Fee: ${currencyFormat.format(item.platformFee)} • ${DateFormat('MMM dd - HH:mm').format(item.createdAt)}',
+                                        style: TextStyle(
+                                          color: item.isOnHold
+                                              ? Colors.black45
+                                              : Theme.of(context)
+                                                    .colorScheme
+                                                    .onSurface
+                                                    .withValues(alpha: 0.6),
+                                        ),
                                       ),
                                       trailing: Row(
                                         mainAxisSize: MainAxisSize.min,
@@ -552,11 +665,10 @@ class _PayrollDeskScreenState extends State<PayrollDeskScreen>
                                               fontSize: 16,
                                               color: item.netPayout < 0
                                                   ? Colors.red
-                                                  : Colors.green,
+                                                  : Colors.green.shade700,
                                             ),
                                           ),
-                                          const SizedBox(width: 12),
-                                          // HOLD SWITCH
+                                          const SizedBox(width: 16),
                                           Switch(
                                             activeColor: Colors.orange,
                                             value: item.isOnHold,
@@ -571,7 +683,6 @@ class _PayrollDeskScreenState extends State<PayrollDeskScreen>
                                               );
                                             },
                                           ),
-                                          // DELETE BUTTON FOR MANUAL ADJUSTMENTS / LINE ITEMS
                                           IconButton(
                                             icon: const Icon(
                                               Icons.delete_outline,
@@ -595,13 +706,21 @@ class _PayrollDeskScreenState extends State<PayrollDeskScreen>
                                 },
                               ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 24),
                       SizedBox(
                         width: double.infinity,
-                        height: 50,
+                        height: 54,
                         child: ElevatedButton.icon(
                           icon: const Icon(Icons.add),
-                          label: const Text('Add Manual Adjustment'),
+                          label: const Text(
+                            'Add Manual Adjustment',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
                           onPressed: () {
                             _showAddAdjustmentDialog(
                               parentContext,
@@ -614,7 +733,6 @@ class _PayrollDeskScreenState extends State<PayrollDeskScreen>
                     ],
                   );
                 }
-
                 return const Center(child: CircularProgressIndicator());
               },
             ),
@@ -638,7 +756,12 @@ class _PayrollDeskScreenState extends State<PayrollDeskScreen>
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Manual Adjustment'),
+        backgroundColor: Theme.of(context).cardColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Manual Adjustment',
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -648,6 +771,7 @@ class _PayrollDeskScreenState extends State<PayrollDeskScreen>
                 signed: true,
                 decimal: true,
               ),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
               decoration: const InputDecoration(
                 labelText: 'Amount (+/-)',
                 hintText: 'e.g., -50.00 or 100.00',
@@ -657,6 +781,7 @@ class _PayrollDeskScreenState extends State<PayrollDeskScreen>
             const SizedBox(height: 16),
             TextField(
               controller: reasonController,
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
               decoration: const InputDecoration(
                 labelText: 'Reason for Adjustment',
                 border: OutlineInputBorder(),
@@ -713,11 +838,18 @@ class _PayrollDeskScreenState extends State<PayrollDeskScreen>
       context: parentContext,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
+        backgroundColor: Theme.of(parentContext).cardColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
             Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700),
             const SizedBox(width: 8),
-            const Text('Confirm Batch Execution'),
+            Text(
+              'Confirm Batch Execution',
+              style: TextStyle(
+                color: Theme.of(parentContext).colorScheme.onSurface,
+              ),
+            ),
           ],
         ),
         content: SizedBox(
@@ -729,14 +861,23 @@ class _PayrollDeskScreenState extends State<PayrollDeskScreen>
               Text(
                 'You are about to lock the ledgers and mark all pending jobs as PAID. '
                 'This will flag ${currencyFormat.format(state.totalNetPayout)} as transferred to ${state.payouts.length} drivers.',
+                style: TextStyle(
+                  color: Theme.of(parentContext).colorScheme.onSurface,
+                ),
               ),
               const SizedBox(height: 24),
-              const Text(
+              Text(
                 'Please enter the Bank Wire or Transaction Reference Number:',
+                style: TextStyle(
+                  color: Theme.of(parentContext).colorScheme.onSurface,
+                ),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: refController,
+                style: TextStyle(
+                  color: Theme.of(parentContext).colorScheme.onSurface,
+                ),
                 decoration: const InputDecoration(
                   labelText: 'Bank Reference / Trace ID',
                   border: OutlineInputBorder(),
@@ -786,7 +927,7 @@ class _PayrollDeskScreenState extends State<PayrollDeskScreen>
   }
 }
 
-// --- SUMMARY CARD COMPONENT ---
+// --- SUMMARY CARD COMPONENT (FIXED) ---
 class _SummaryCard extends StatelessWidget {
   final String title;
   final String value;
@@ -805,8 +946,15 @@ class _SummaryCard extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Card(
-      elevation: isPrimary ? 3 : 1,
+      elevation: 0,
       color: isPrimary ? theme.primaryColor : theme.cardColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        // FIX: The compiler error was caused by passing Border.all() instead of BorderSide() here
+        side: isPrimary
+            ? BorderSide.none
+            : BorderSide(color: theme.dividerColor.withValues(alpha: 0.3)),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -815,7 +963,9 @@ class _SummaryCard extends StatelessWidget {
             Text(
               title,
               style: theme.textTheme.titleSmall?.copyWith(
-                color: isPrimary ? Colors.white70 : theme.disabledColor,
+                color: isPrimary
+                    ? Colors.white70
+                    : theme.colorScheme.onSurface.withValues(alpha: 0.6),
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -823,13 +973,16 @@ class _SummaryCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  value,
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: isPrimary
-                        ? Colors.white
-                        : theme.colorScheme.onSurface,
+                Expanded(
+                  child: Text(
+                    value,
+                    style: theme.textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: isPrimary
+                          ? Colors.white
+                          : theme.colorScheme.onSurface,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 Icon(
@@ -837,7 +990,7 @@ class _SummaryCard extends StatelessWidget {
                   size: 32,
                   color: isPrimary
                       ? Colors.white30
-                      : theme.primaryColor.withOpacity(0.2),
+                      : theme.primaryColor.withValues(alpha: 0.2),
                 ),
               ],
             ),

@@ -52,7 +52,7 @@ class _DriverManagementViewState extends State<_DriverManagementView>
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor, // Light theme compliant
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(32.0),
@@ -131,10 +131,11 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                       buildWhen: (prev, current) =>
                           current is FleetLoaded || current is FleetLoading,
                       builder: (context, state) {
-                        if (state is FleetLoading)
+                        if (state is FleetLoading) {
                           return const Center(
                             child: CircularProgressIndicator(),
                           );
+                        }
                         if (state is FleetLoaded) {
                           final filteredActive = state.activeFleet
                               .where(
@@ -205,13 +206,15 @@ class _DriverManagementViewState extends State<_DriverManagementView>
               'Fleet Operations',
               style: theme.textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: theme.colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'Manage active drivers, vehicle routing, and compliance documents.',
-              style: TextStyle(color: theme.disabledColor),
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
             ),
           ],
         ),
@@ -279,7 +282,7 @@ class _DriverManagementViewState extends State<_DriverManagementView>
       child: Column(
         children: [
           Container(
-            color: theme.primaryColor.withValues(alpha: 0.03),
+            color: theme.primaryColor.withValues(alpha: 0.05),
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             child: Row(
               children: [
@@ -337,31 +340,36 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                               backgroundColor: theme.primaryColor.withValues(
                                 alpha: 0.1,
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.engineering,
-                                color: Colors.blue,
+                                color: theme.primaryColor,
                               ),
                             ),
                             const SizedBox(width: 16),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  d.fullName,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                    color: Colors.white,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    d.fullName,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                      color: theme.colorScheme.onSurface,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ),
-                                Text(
-                                  d.phoneNumber,
-                                  style: TextStyle(
-                                    color: theme.disabledColor,
-                                    fontSize: 12,
+                                  Text(
+                                    d.phoneNumber,
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurface
+                                          .withValues(alpha: 0.6),
+                                      fontSize: 12,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ],
                         ),
@@ -374,18 +382,20 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                           children: [
                             Text(
                               d.vehicleSummary,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.w500,
-                                color: Colors.white,
+                                color: theme.colorScheme.onSurface,
                               ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                             Text(
                               d.truckTypeText,
                               style: const TextStyle(
-                                color: Colors.blueAccent,
+                                color: Colors.blue,
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
                               ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
@@ -438,7 +448,7 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                             IconButton(
                               icon: const Icon(
                                 Icons.phone_in_talk,
-                                color: Colors.greenAccent,
+                                color: Colors.green,
                                 size: 20,
                               ),
                               tooltip: 'Call Driver via Agora',
@@ -519,12 +529,14 @@ class _DriverManagementViewState extends State<_DriverManagementView>
               'Inbox Zero',
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: theme.colorScheme.onSurface,
               ),
             ),
             Text(
               'All driver applications have been processed.',
-              style: TextStyle(color: theme.disabledColor),
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
             ),
           ],
         ),
@@ -581,17 +593,19 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                     children: [
                       Text(
                         driver.fullName,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
-                          color: Colors.white,
+                          color: theme.colorScheme.onSurface,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
                         'Applied: ${DateFormat('MMM dd, yyyy').format(driver.appliedAt)}',
                         style: TextStyle(
-                          color: theme.disabledColor,
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
+                          ),
                           fontSize: 12,
                         ),
                       ),
@@ -603,13 +617,17 @@ class _DriverManagementViewState extends State<_DriverManagementView>
             const SizedBox(height: 24),
             Row(
               children: [
-                const Icon(Icons.phone, size: 16, color: Colors.grey),
+                Icon(
+                  Icons.phone,
+                  size: 16,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
                 const SizedBox(width: 8),
                 Text(
                   driver.phoneNumber,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w500,
-                    color: Colors.white,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
               ],
@@ -617,14 +635,18 @@ class _DriverManagementViewState extends State<_DriverManagementView>
             const SizedBox(height: 12),
             Row(
               children: [
-                const Icon(Icons.local_shipping, size: 16, color: Colors.grey),
+                Icon(
+                  Icons.local_shipping,
+                  size: 16,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     driver.vehicleSummary,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w500,
-                      color: Colors.white,
+                      color: theme.colorScheme.onSurface,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -677,13 +699,17 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                         'Active Fleet Management: ${driver.fullName}',
                         style: theme.textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: theme.colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'View and manage the active profile for this fleet driver.',
-                        style: TextStyle(color: theme.disabledColor),
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -692,6 +718,7 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                       FilledButton.icon(
                         style: FilledButton.styleFrom(
                           backgroundColor: Colors.green.shade700,
+                          foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 12,
@@ -719,7 +746,10 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                       ),
                       const SizedBox(width: 16),
                       IconButton(
-                        icon: const Icon(Icons.close),
+                        icon: Icon(
+                          Icons.close,
+                          color: theme.colorScheme.onSurface,
+                        ),
                         onPressed: () => Navigator.pop(dialogContext),
                       ),
                     ],
@@ -750,18 +780,25 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                             backgroundColor: theme.primaryColor.withValues(
                               alpha: 0.1,
                             ),
-                            child: const Icon(Icons.person),
+                            child: Icon(
+                              Icons.person,
+                              color: theme.primaryColor,
+                            ),
                           ),
                           title: Text(
                             driver.fullName,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: theme.colorScheme.onSurface,
                             ),
                           ),
                           subtitle: Text(
                             'ID: ${driver.driverProfileId.substring(0, 8)}',
-                            style: const TextStyle(color: Colors.grey),
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.6,
+                              ),
+                            ),
                           ),
                         ),
                         ListTile(
@@ -770,18 +807,22 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                             backgroundColor: theme.primaryColor.withValues(
                               alpha: 0.1,
                             ),
-                            child: const Icon(Icons.phone),
+                            child: Icon(Icons.phone, color: theme.primaryColor),
                           ),
                           title: Text(
                             driver.phoneNumber,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: theme.colorScheme.onSurface,
                             ),
                           ),
-                          subtitle: const Text(
+                          subtitle: Text(
                             'Primary Contact',
-                            style: TextStyle(color: Colors.grey),
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.6,
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -807,18 +848,25 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                             backgroundColor: theme.primaryColor.withValues(
                               alpha: 0.1,
                             ),
-                            child: const Icon(Icons.local_shipping),
+                            child: Icon(
+                              Icons.local_shipping,
+                              color: theme.primaryColor,
+                            ),
                           ),
                           title: Text(
                             driver.vehicleSummary,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: theme.colorScheme.onSurface,
                             ),
                           ),
                           subtitle: Text(
                             driver.truckTypeText,
-                            style: const TextStyle(color: Colors.grey),
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.6,
+                              ),
+                            ),
                           ),
                         ),
                         ListTile(
@@ -827,20 +875,24 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                             backgroundColor: theme.primaryColor.withValues(
                               alpha: 0.1,
                             ),
-                            child: const Icon(Icons.pin),
+                            child: Icon(Icons.pin, color: theme.primaryColor),
                           ),
                           title: Text(
                             vehicle != null && vehicle['licensePlate'] != null
                                 ? vehicle['licensePlate']
                                 : 'Unregistered',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: theme.colorScheme.onSurface,
                             ),
                           ),
-                          subtitle: const Text(
+                          subtitle: Text(
                             'License Plate',
-                            style: TextStyle(color: Colors.grey),
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.6,
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -932,6 +984,7 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                       backgroundColor: driver.isSuspended
                           ? Colors.blue
                           : Colors.orange,
+                      foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 32,
                         vertical: 18,
@@ -997,13 +1050,17 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                         'Compliance Verification: ${driver.fullName}',
                         style: theme.textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: theme.colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Review the uploaded documents and asset details to verify legal compliance.',
-                        style: TextStyle(color: theme.disabledColor),
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -1019,7 +1076,10 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                       ),
                       const SizedBox(width: 16),
                       IconButton(
-                        icon: const Icon(Icons.close),
+                        icon: Icon(
+                          Icons.close,
+                          color: theme.colorScheme.onSurface,
+                        ),
                         onPressed: () => Navigator.pop(dialogContext),
                       ),
                     ],
@@ -1050,18 +1110,25 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                             backgroundColor: theme.primaryColor.withValues(
                               alpha: 0.1,
                             ),
-                            child: const Icon(Icons.person),
+                            child: Icon(
+                              Icons.person,
+                              color: theme.primaryColor,
+                            ),
                           ),
                           title: Text(
                             driver.fullName,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: theme.colorScheme.onSurface,
                             ),
                           ),
                           subtitle: Text(
                             'ID: ${driver.driverProfileId.substring(0, 8)}',
-                            style: const TextStyle(color: Colors.grey),
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.6,
+                              ),
+                            ),
                           ),
                         ),
                         ListTile(
@@ -1070,18 +1137,22 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                             backgroundColor: theme.primaryColor.withValues(
                               alpha: 0.1,
                             ),
-                            child: const Icon(Icons.phone),
+                            child: Icon(Icons.phone, color: theme.primaryColor),
                           ),
                           title: Text(
                             driver.phoneNumber,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: theme.colorScheme.onSurface,
                             ),
                           ),
-                          subtitle: const Text(
+                          subtitle: Text(
                             'Primary Contact',
-                            style: TextStyle(color: Colors.grey),
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.6,
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -1107,18 +1178,25 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                             backgroundColor: theme.primaryColor.withValues(
                               alpha: 0.1,
                             ),
-                            child: const Icon(Icons.local_shipping),
+                            child: Icon(
+                              Icons.local_shipping,
+                              color: theme.primaryColor,
+                            ),
                           ),
                           title: Text(
                             driver.vehicleSummary,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: theme.colorScheme.onSurface,
                             ),
                           ),
                           subtitle: Text(
                             driver.truckTypeText,
-                            style: const TextStyle(color: Colors.grey),
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.6,
+                              ),
+                            ),
                           ),
                         ),
                         ListTile(
@@ -1127,20 +1205,24 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                             backgroundColor: theme.primaryColor.withValues(
                               alpha: 0.1,
                             ),
-                            child: const Icon(Icons.pin),
+                            child: Icon(Icons.pin, color: theme.primaryColor),
                           ),
                           title: Text(
                             vehicle != null && vehicle['licensePlate'] != null
                                 ? vehicle['licensePlate']
                                 : 'Unregistered',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: theme.colorScheme.onSurface,
                             ),
                           ),
-                          subtitle: const Text(
+                          subtitle: Text(
                             'License Plate',
-                            style: TextStyle(color: Colors.grey),
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.6,
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -1233,6 +1315,7 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                   FilledButton.icon(
                     style: FilledButton.styleFrom(
                       backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 32,
                         vertical: 18,
@@ -1275,10 +1358,10 @@ class _DriverManagementViewState extends State<_DriverManagementView>
       children: [
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 14,
-            color: Colors.white,
+            color: theme.colorScheme.onSurface,
           ),
         ),
         const SizedBox(height: 12),
@@ -1425,11 +1508,14 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                           'Manual Driver & Asset Setup',
                           style: theme.textTheme.headlineSmall?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: theme.colorScheme.onSurface,
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.close),
+                          icon: Icon(
+                            Icons.close,
+                            color: theme.colorScheme.onSurface,
+                          ),
                           onPressed: () => Navigator.pop(dialogContext),
                         ),
                       ],
@@ -1461,7 +1547,9 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                       filled: true,
                                       fillColor: theme.cardColor,
                                     ),
-                                    style: const TextStyle(color: Colors.white),
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurface,
+                                    ),
                                     validator: (v) =>
                                         v!.isEmpty ? 'Required' : null,
                                   ),
@@ -1474,7 +1562,9 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                       filled: true,
                                       fillColor: theme.cardColor,
                                     ),
-                                    style: const TextStyle(color: Colors.white),
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurface,
+                                    ),
                                     validator: (v) =>
                                         v!.isEmpty ? 'Required' : null,
                                   ),
@@ -1488,7 +1578,9 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                       fillColor: theme.cardColor,
                                     ),
                                     keyboardType: TextInputType.phone,
-                                    style: const TextStyle(color: Colors.white),
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurface,
+                                    ),
                                     validator: (v) =>
                                         v!.isEmpty ? 'Required' : null,
                                   ),
@@ -1501,7 +1593,9 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                       filled: true,
                                       fillColor: theme.cardColor,
                                     ),
-                                    style: const TextStyle(color: Colors.white),
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurface,
+                                    ),
                                     keyboardType: TextInputType.phone,
                                   ),
                                   const SizedBox(height: 16),
@@ -1513,7 +1607,9 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                       filled: true,
                                       fillColor: theme.cardColor,
                                     ),
-                                    style: const TextStyle(color: Colors.white),
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurface,
+                                    ),
                                     validator: (v) =>
                                         v!.isEmpty ? 'Required' : null,
                                   ),
@@ -1534,6 +1630,8 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                     ),
                                   ),
                                   const SizedBox(height: 16),
+
+                                  // FEATURE: Full 9 Enums Synced
                                   DropdownButtonFormField<int>(
                                     key: ValueKey(truckType),
                                     initialValue: truckType,
@@ -1544,47 +1642,86 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                       filled: true,
                                       fillColor: theme.cardColor,
                                     ),
-                                    items: const [
+                                    items: [
                                       DropdownMenuItem(
                                         value: 1,
                                         child: Text(
                                           'Standard Wrecker (Wheel Lift)',
-                                          style: TextStyle(color: Colors.white),
+                                          style: TextStyle(
+                                            color: theme.colorScheme.onSurface,
+                                          ),
                                         ),
                                       ),
                                       DropdownMenuItem(
                                         value: 2,
                                         child: Text(
                                           'Flatbed Rollback',
-                                          style: TextStyle(color: Colors.white),
+                                          style: TextStyle(
+                                            color: theme.colorScheme.onSurface,
+                                          ),
                                         ),
                                       ),
                                       DropdownMenuItem(
                                         value: 3,
                                         child: Text(
                                           'Low Clearance / Underground',
-                                          style: TextStyle(color: Colors.white),
+                                          style: TextStyle(
+                                            color: theme.colorScheme.onSurface,
+                                          ),
                                         ),
                                       ),
                                       DropdownMenuItem(
                                         value: 4,
                                         child: Text(
-                                          'Heavy Duty Rotator (Commercial)',
-                                          style: TextStyle(color: Colors.white),
+                                          'Heavy Duty Rotator',
+                                          style: TextStyle(
+                                            color: theme.colorScheme.onSurface,
+                                          ),
                                         ),
                                       ),
                                       DropdownMenuItem(
                                         value: 5,
                                         child: Text(
-                                          'Light Service (No Towing)',
-                                          style: TextStyle(color: Colors.white),
+                                          'Light Service Vehicle',
+                                          style: TextStyle(
+                                            color: theme.colorScheme.onSurface,
+                                          ),
                                         ),
                                       ),
                                       DropdownMenuItem(
                                         value: 6,
                                         child: Text(
-                                          'Motorcycle Dedicated Trailer',
-                                          style: TextStyle(color: Colors.white),
+                                          'Motorcycle Trailer',
+                                          style: TextStyle(
+                                            color: theme.colorScheme.onSurface,
+                                          ),
+                                        ),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 7,
+                                        child: Text(
+                                          'Medium Duty Flatbed',
+                                          style: TextStyle(
+                                            color: theme.colorScheme.onSurface,
+                                          ),
+                                        ),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 8,
+                                        child: Text(
+                                          'Integrated Tow Truck',
+                                          style: TextStyle(
+                                            color: theme.colorScheme.onSurface,
+                                          ),
+                                        ),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 9,
+                                        child: Text(
+                                          'Mobile EV Charging Van',
+                                          style: TextStyle(
+                                            color: theme.colorScheme.onSurface,
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -1610,8 +1747,10 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                                   value: make,
                                                   child: Text(
                                                     make,
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
+                                                    style: TextStyle(
+                                                      color: theme
+                                                          .colorScheme
+                                                          .onSurface,
                                                     ),
                                                   ),
                                                 ),
@@ -1640,19 +1779,18 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                               ? []
                                               : _vehicleDatabase[selectedMake]!
                                                     .map(
-                                                      (
-                                                        model,
-                                                      ) => DropdownMenuItem(
-                                                        value: model,
-                                                        child: Text(
-                                                          model,
-                                                          style:
-                                                              const TextStyle(
-                                                                color: Colors
-                                                                    .white,
+                                                      (model) =>
+                                                          DropdownMenuItem(
+                                                            value: model,
+                                                            child: Text(
+                                                              model,
+                                                              style: TextStyle(
+                                                                color: theme
+                                                                    .colorScheme
+                                                                    .onSurface,
                                                               ),
-                                                        ),
-                                                      ),
+                                                            ),
+                                                          ),
                                                     )
                                                     .toList(),
                                           onChanged: (val) => setModalState(
@@ -1684,8 +1822,10 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                                   value: year,
                                                   child: Text(
                                                     year.toString(),
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
+                                                    style: TextStyle(
+                                                      color: theme
+                                                          .colorScheme
+                                                          .onSurface,
                                                     ),
                                                   ),
                                                 ),
@@ -1720,8 +1860,10 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                                       value: fuel,
                                                       child: Text(
                                                         fuel,
-                                                        style: const TextStyle(
-                                                          color: Colors.white,
+                                                        style: TextStyle(
+                                                          color: theme
+                                                              .colorScheme
+                                                              .onSurface,
                                                         ),
                                                       ),
                                                     ),
@@ -1743,7 +1885,9 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                       filled: true,
                                       fillColor: theme.cardColor,
                                     ),
-                                    style: const TextStyle(color: Colors.white),
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurface,
+                                    ),
                                     validator: (v) =>
                                         v!.isEmpty ? 'Required' : null,
                                   ),
@@ -1772,7 +1916,6 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                   'toolPhoneNumber': toolPhoneCtrl.text.trim(),
                                   'email': emailCtrl.text.trim(),
                                   'employeeId': employeeIdCtrl.text.trim(),
-                                  // FIX: Adding string fallbacks to prevent backend 400 rejection
                                   'vehicleMake': selectedMake ?? 'Unknown',
                                   'vehicleModel': selectedModel ?? 'Unknown',
                                   'vehicleYear': selectedYear,
@@ -1821,19 +1964,21 @@ class _DriverManagementViewState extends State<_DriverManagementView>
       text: vehicle?['licensePlate'] ?? '',
     );
 
-    int truckType = [1, 2, 3, 4, 5, 6].contains(vehicle?['truckType'])
+    int truckType = [1, 2, 3, 4, 5, 6, 7, 8, 9].contains(vehicle?['truckType'])
         ? vehicle!['truckType']
         : 1;
 
     String? selectedMake = vehicle?['make'];
-    if (selectedMake != null && !_vehicleDatabase.containsKey(selectedMake))
+    if (selectedMake != null && !_vehicleDatabase.containsKey(selectedMake)) {
       selectedMake = null;
+    }
 
     String? selectedModel = vehicle?['model'];
     if (selectedMake != null &&
         selectedModel != null &&
-        !(_vehicleDatabase[selectedMake]!.contains(selectedModel)))
+        !(_vehicleDatabase[selectedMake]!.contains(selectedModel))) {
       selectedModel = null;
+    }
 
     int selectedYear = vehicle?['year'] ?? DateTime.now().year;
     final List<int> yearsList = List.generate(
@@ -1894,11 +2039,14 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                           'Edit Driver',
                           style: theme.textTheme.headlineSmall?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: theme.colorScheme.onSurface,
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.close),
+                          icon: Icon(
+                            Icons.close,
+                            color: theme.colorScheme.onSurface,
+                          ),
                           onPressed: () => Navigator.pop(dialogContext),
                         ),
                       ],
@@ -1933,8 +2081,8 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                           filled: true,
                                           fillColor: theme.cardColor,
                                         ),
-                                        style: const TextStyle(
-                                          color: Colors.white,
+                                        style: TextStyle(
+                                          color: theme.colorScheme.onSurface,
                                         ),
                                         validator: (v) =>
                                             v!.isEmpty ? 'Required' : null,
@@ -1948,8 +2096,8 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                           filled: true,
                                           fillColor: theme.cardColor,
                                         ),
-                                        style: const TextStyle(
-                                          color: Colors.white,
+                                        style: TextStyle(
+                                          color: theme.colorScheme.onSurface,
                                         ),
                                         validator: (v) =>
                                             v!.isEmpty ? 'Required' : null,
@@ -1963,8 +2111,8 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                           filled: true,
                                           fillColor: theme.cardColor,
                                         ),
-                                        style: const TextStyle(
-                                          color: Colors.white,
+                                        style: TextStyle(
+                                          color: theme.colorScheme.onSurface,
                                         ),
                                       ),
                                     ],
@@ -1984,6 +2132,8 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                         ),
                                       ),
                                       const SizedBox(height: 16),
+
+                                      // FEATURE: Sync all 9 Trucks
                                       DropdownButtonFormField<int>(
                                         key: ValueKey(truckType),
                                         initialValue: truckType,
@@ -1994,13 +2144,14 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                           filled: true,
                                           fillColor: theme.cardColor,
                                         ),
-                                        items: const [
+                                        items: [
                                           DropdownMenuItem(
                                             value: 1,
                                             child: Text(
                                               'Standard Wrecker (Wheel Lift)',
                                               style: TextStyle(
-                                                color: Colors.white,
+                                                color:
+                                                    theme.colorScheme.onSurface,
                                               ),
                                             ),
                                           ),
@@ -2009,7 +2160,8 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                             child: Text(
                                               'Flatbed Rollback',
                                               style: TextStyle(
-                                                color: Colors.white,
+                                                color:
+                                                    theme.colorScheme.onSurface,
                                               ),
                                             ),
                                           ),
@@ -2018,25 +2170,28 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                             child: Text(
                                               'Low Clearance / Underground',
                                               style: TextStyle(
-                                                color: Colors.white,
+                                                color:
+                                                    theme.colorScheme.onSurface,
                                               ),
                                             ),
                                           ),
                                           DropdownMenuItem(
                                             value: 4,
                                             child: Text(
-                                              'Heavy Duty Rotator (Commercial)',
+                                              'Heavy Duty Rotator',
                                               style: TextStyle(
-                                                color: Colors.white,
+                                                color:
+                                                    theme.colorScheme.onSurface,
                                               ),
                                             ),
                                           ),
                                           DropdownMenuItem(
                                             value: 5,
                                             child: Text(
-                                              'Light Service (No Towing)',
+                                              'Light Service Vehicle',
                                               style: TextStyle(
-                                                color: Colors.white,
+                                                color:
+                                                    theme.colorScheme.onSurface,
                                               ),
                                             ),
                                           ),
@@ -2045,7 +2200,38 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                             child: Text(
                                               'Motorcycle Dedicated Trailer',
                                               style: TextStyle(
-                                                color: Colors.white,
+                                                color:
+                                                    theme.colorScheme.onSurface,
+                                              ),
+                                            ),
+                                          ),
+                                          DropdownMenuItem(
+                                            value: 7,
+                                            child: Text(
+                                              'Medium Duty Flatbed',
+                                              style: TextStyle(
+                                                color:
+                                                    theme.colorScheme.onSurface,
+                                              ),
+                                            ),
+                                          ),
+                                          DropdownMenuItem(
+                                            value: 8,
+                                            child: Text(
+                                              'Integrated Tow Truck',
+                                              style: TextStyle(
+                                                color:
+                                                    theme.colorScheme.onSurface,
+                                              ),
+                                            ),
+                                          ),
+                                          DropdownMenuItem(
+                                            value: 9,
+                                            child: Text(
+                                              'Mobile EV Charging Van',
+                                              style: TextStyle(
+                                                color:
+                                                    theme.colorScheme.onSurface,
                                               ),
                                             ),
                                           ),
@@ -2074,8 +2260,10 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                                       value: make,
                                                       child: Text(
                                                         make,
-                                                        style: const TextStyle(
-                                                          color: Colors.white,
+                                                        style: TextStyle(
+                                                          color: theme
+                                                              .colorScheme
+                                                              .onSurface,
                                                         ),
                                                       ),
                                                     ),
@@ -2110,11 +2298,11 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                                             value: model,
                                                             child: Text(
                                                               model,
-                                                              style:
-                                                                  const TextStyle(
-                                                                    color: Colors
-                                                                        .white,
-                                                                  ),
+                                                              style: TextStyle(
+                                                                color: theme
+                                                                    .colorScheme
+                                                                    .onSurface,
+                                                              ),
                                                             ),
                                                           ),
                                                         )
@@ -2147,8 +2335,10 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                                       value: year,
                                                       child: Text(
                                                         year.toString(),
-                                                        style: const TextStyle(
-                                                          color: Colors.white,
+                                                        style: TextStyle(
+                                                          color: theme
+                                                              .colorScheme
+                                                              .onSurface,
                                                         ),
                                                       ),
                                                     ),
@@ -2170,8 +2360,9 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                                 filled: true,
                                                 fillColor: theme.cardColor,
                                               ),
-                                              style: const TextStyle(
-                                                color: Colors.white,
+                                              style: TextStyle(
+                                                color:
+                                                    theme.colorScheme.onSurface,
                                               ),
                                             ),
                                           ),
@@ -2228,16 +2419,18 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                                   : Icons.upload_file,
                                               color: isUploaded
                                                   ? Colors.green
-                                                  : Colors.grey,
+                                                  : theme.colorScheme.onSurface
+                                                        .withValues(alpha: 0.5),
                                               size: 32,
                                             ),
                                             const SizedBox(height: 8),
                                             Text(
                                               key,
-                                              style: const TextStyle(
+                                              style: TextStyle(
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 12,
-                                                color: Colors.white,
+                                                color:
+                                                    theme.colorScheme.onSurface,
                                               ),
                                               textAlign: TextAlign.center,
                                             ),
@@ -2278,7 +2471,6 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                   'fullName': nameCtrl.text.trim(),
                                   'phoneNumber': personalPhoneCtrl.text.trim(),
                                   'email': emailCtrl.text.trim(),
-                                  // FIX: Adding string fallbacks here too just in case
                                   'vehicleMake': selectedMake ?? 'Unknown',
                                   'vehicleModel': selectedModel ?? 'Unknown',
                                   'vehicleYear': selectedYear,

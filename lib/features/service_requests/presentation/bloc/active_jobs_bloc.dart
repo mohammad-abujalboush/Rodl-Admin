@@ -151,9 +151,7 @@ class ActiveJobsBloc extends Bloc<ActiveJobsEvent, ActiveJobsState> {
       emit(ActiveJobsLoading());
       try {
         final responses = await Future.wait([
-          dioClient.dio.get(
-            '/api/admin/jobs/all',
-          ), // FIXED: Now pulls entire history
+          dioClient.dio.get('/api/admin/jobs/all'),
           dioClient.dio
               .get('/api/admin/active-fleet')
               .catchError(
@@ -333,7 +331,6 @@ class ActiveJobsBloc extends Bloc<ActiveJobsEvent, ActiveJobsState> {
     });
   }
 
-  // --- NEW: Dynamic CRM Search Helper ---
   Future<List<Map<String, dynamic>>> searchCustomers(String query) async {
     try {
       final res = await dioClient.dio.get(

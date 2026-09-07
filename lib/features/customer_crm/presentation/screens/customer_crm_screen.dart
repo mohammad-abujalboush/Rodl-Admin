@@ -24,7 +24,7 @@ class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
     return BlocProvider(
       create: (_) => sl<CustomerCrmBloc>()..add(FetchCustomers()),
       child: Scaffold(
-        backgroundColor: theme.scaffoldBackgroundColor,
+        backgroundColor: theme.scaffoldBackgroundColor, // Light theme compliant
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(32.0),
@@ -40,7 +40,7 @@ class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(state.message),
-                            backgroundColor: Colors.green,
+                            backgroundColor: Colors.green.shade700,
                           ),
                         );
                       } else if (state is CrmError) {
@@ -55,19 +55,17 @@ class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
                     buildWhen: (prev, current) =>
                         current is CustomersLoaded || current is CrmLoading,
                     builder: (context, state) {
-                      if (state is CrmLoading)
+                      if (state is CrmLoading) {
                         return const Center(child: CircularProgressIndicator());
+                      }
                       if (state is CustomersLoaded) {
-                        final filtered = state.customers
-                            .where(
-                              (c) =>
-                                  c.fullName.toLowerCase().contains(
-                                    _searchQuery,
-                                  ) ||
-                                  c.phone.contains(_searchQuery) ||
-                                  c.email.toLowerCase().contains(_searchQuery),
-                            )
-                            .toList();
+                        final filtered = state.customers.where((c) {
+                          return c.fullName.toLowerCase().contains(
+                                _searchQuery,
+                              ) ||
+                              c.phone.contains(_searchQuery) ||
+                              c.email.toLowerCase().contains(_searchQuery);
+                        }).toList();
                         return _buildDesktopTable(filtered, theme);
                       }
                       return const SizedBox.shrink();
@@ -86,22 +84,28 @@ class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Customer Profiles (CRM)',
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Customer Profiles (CRM)',
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Manage identities, fleets, and lifetime value.',
-              style: TextStyle(color: theme.disabledColor),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                'Manage identities, fleets, and lifetime value.',
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
         ),
         Row(
           children: [
@@ -115,7 +119,9 @@ class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
                   fillColor: theme.cardColor,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+                    borderSide: BorderSide(
+                      color: theme.dividerColor.withValues(alpha: 0.3),
+                    ),
                   ),
                 ),
                 onChanged: (val) =>
@@ -129,6 +135,9 @@ class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
                     vertical: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
                 icon: const Icon(Icons.person_add),
@@ -178,24 +187,23 @@ class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
             ),
             title: Text(
               c.fullName,
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: theme.colorScheme.onSurface,
               ),
+              overflow: TextOverflow.ellipsis,
             ),
             subtitle: Text(
               '${c.phone} • Joined ${DateFormat('MMM dd, yyyy').format(c.joinedAt)}',
-              style: TextStyle(color: theme.disabledColor),
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
             ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // AGORA VOICE CALL BUTTON
                 IconButton.filledTonal(
-                  icon: const Icon(
-                    Icons.phone_in_talk,
-                    color: Colors.greenAccent,
-                  ),
+                  icon: const Icon(Icons.phone_in_talk, color: Colors.green),
                   tooltip: 'Voice Call via Agora',
                   onPressed: () => triggerVoiceCall(
                     context: ctx,
@@ -216,11 +224,17 @@ class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.green,
+                        fontSize: 15,
                       ),
                     ),
                     Text(
                       '${c.totalRequests} Jobs',
-                      style: const TextStyle(fontSize: 10, color: Colors.grey),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.5,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -252,7 +266,7 @@ class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
     showDialog(
       context: parentContext,
       builder: (ctx) => Dialog(
-        backgroundColor: theme.scaffoldBackgroundColor,
+        backgroundColor: theme.cardColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         child: Container(
           width: 500,
@@ -269,12 +283,15 @@ class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
                     Text(
                       'Create Customer Identity',
                       style: theme.textTheme.headlineSmall?.copyWith(
-                        color: Colors.white,
+                        color: theme.colorScheme.onSurface,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close),
+                      icon: Icon(
+                        Icons.close,
+                        color: theme.colorScheme.onSurface,
+                      ),
                       onPressed: () => Navigator.pop(ctx),
                     ),
                   ],
@@ -282,45 +299,47 @@ class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
                 const SizedBox(height: 8),
                 Text(
                   'A secure B2C profile will be generated. Temporary login credentials will be emailed to the client automatically.',
-                  style: TextStyle(color: theme.disabledColor),
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
                 ),
                 const Divider(height: 48),
                 TextFormField(
                   controller: nameCtrl,
+                  style: TextStyle(color: theme.colorScheme.onSurface),
                   decoration: InputDecoration(
                     labelText: 'Full Legal Name *',
                     filled: true,
-                    fillColor: theme.cardColor,
+                    fillColor: theme.scaffoldBackgroundColor,
                     border: const OutlineInputBorder(),
                   ),
                   validator: (v) => v!.isEmpty ? 'Required' : null,
-                  style: const TextStyle(color: Colors.white),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: phoneCtrl,
+                  style: TextStyle(color: theme.colorScheme.onSurface),
                   decoration: InputDecoration(
                     labelText: 'Primary Phone Number *',
                     filled: true,
-                    fillColor: theme.cardColor,
+                    fillColor: theme.scaffoldBackgroundColor,
                     border: const OutlineInputBorder(),
                   ),
                   keyboardType: TextInputType.phone,
                   validator: (v) => v!.isEmpty ? 'Required' : null,
-                  style: const TextStyle(color: Colors.white),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: emailCtrl,
+                  style: TextStyle(color: theme.colorScheme.onSurface),
                   decoration: InputDecoration(
                     labelText: 'Email Address *',
                     filled: true,
-                    fillColor: theme.cardColor,
+                    fillColor: theme.scaffoldBackgroundColor,
                     border: const OutlineInputBorder(),
                   ),
                   keyboardType: TextInputType.emailAddress,
                   validator: (v) => v!.isEmpty ? 'Required' : null,
-                  style: const TextStyle(color: Colors.white),
                 ),
                 const SizedBox(height: 32),
                 SizedBox(
@@ -370,7 +389,7 @@ class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
       pageBuilder: (dialogContext, _, __) => BlocProvider.value(
         value: customerCrmBloc,
         child: Dialog(
-          backgroundColor: theme.scaffoldBackgroundColor,
+          backgroundColor: theme.cardColor,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
@@ -382,8 +401,9 @@ class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
               buildWhen: (prev, current) =>
                   current is ProfileLoading || current is CustomerProfileLoaded,
               builder: (context, state) {
-                if (state is ProfileLoading)
+                if (state is ProfileLoading) {
                   return const Center(child: CircularProgressIndicator());
+                }
                 if (state is CustomerProfileLoaded) {
                   return _ProfileTabs(
                     profile: state.profile,
@@ -391,7 +411,12 @@ class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
                     theme: theme,
                   );
                 }
-                return const Center(child: Text('Error loading profile data.'));
+                return Center(
+                  child: Text(
+                    'Error loading profile data.',
+                    style: TextStyle(color: theme.colorScheme.onSurface),
+                  ),
+                );
               },
             ),
           ),
@@ -446,13 +471,13 @@ class _ProfileTabs extends StatelessWidget {
                         profile.customer.fullName,
                         style: theme.textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: theme.colorScheme.onSurface,
                         ),
                       ),
                       Text(
-                        'LTV: \$${profile.lifetimeValue.toStringAsFixed(2)} • ${profile.totalTows} Lifetime Tows',
-                        style: const TextStyle(
-                          color: Colors.green,
+                        'LTV: \$${profile.lifetimeValue.toStringAsFixed(2)} • ${profile.totalTows} Lifetime Jobs',
+                        style: TextStyle(
+                          color: Colors.green.shade600,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -462,7 +487,6 @@ class _ProfileTabs extends StatelessWidget {
               ),
               Row(
                 children: [
-                  // VOICE CALL BUTTON IN PROFILE DOSSIER
                   FilledButton.icon(
                     style: FilledButton.styleFrom(
                       backgroundColor: Colors.green.shade700,
@@ -530,7 +554,10 @@ class _ProfileTabs extends StatelessWidget {
                   ),
                   const SizedBox(width: 16),
                   IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white70),
+                    icon: Icon(
+                      Icons.close,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -540,7 +567,7 @@ class _ProfileTabs extends StatelessWidget {
           const SizedBox(height: 32),
           TabBar(
             labelColor: theme.primaryColor,
-            unselectedLabelColor: Colors.grey,
+            unselectedLabelColor: theme.disabledColor,
             indicatorColor: theme.primaryColor,
             tabs: const [
               Tab(text: 'Identity & Details'),
@@ -576,10 +603,10 @@ class _ProfileTabs extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Update Secure Identity',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: theme.colorScheme.onSurface,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
@@ -587,35 +614,35 @@ class _ProfileTabs extends StatelessWidget {
               const SizedBox(height: 16),
               TextFormField(
                 controller: nameCtrl,
+                style: TextStyle(color: theme.colorScheme.onSurface),
                 decoration: InputDecoration(
                   labelText: 'Full Name',
                   filled: true,
-                  fillColor: theme.cardColor,
+                  fillColor: theme.scaffoldBackgroundColor,
                   border: const OutlineInputBorder(),
                 ),
-                style: const TextStyle(color: Colors.white),
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: phoneCtrl,
+                style: TextStyle(color: theme.colorScheme.onSurface),
                 decoration: InputDecoration(
                   labelText: 'Phone',
                   filled: true,
-                  fillColor: theme.cardColor,
+                  fillColor: theme.scaffoldBackgroundColor,
                   border: const OutlineInputBorder(),
                 ),
-                style: const TextStyle(color: Colors.white),
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: emailCtrl,
+                style: TextStyle(color: theme.colorScheme.onSurface),
                 decoration: InputDecoration(
                   labelText: 'Email',
                   filled: true,
-                  fillColor: theme.cardColor,
+                  fillColor: theme.scaffoldBackgroundColor,
                   border: const OutlineInputBorder(),
                 ),
-                style: const TextStyle(color: Colors.white),
               ),
               const SizedBox(height: 24),
               FilledButton.icon(
@@ -692,10 +719,10 @@ class _ProfileTabs extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'Registered Fleet',
               style: TextStyle(
-                color: Colors.white,
+                color: theme.colorScheme.onSurface,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -710,10 +737,12 @@ class _ProfileTabs extends StatelessWidget {
         const SizedBox(height: 16),
         Expanded(
           child: profile.vehicles.isEmpty
-              ? const Center(
+              ? Center(
                   child: Text(
                     'No vehicles attached to this profile.',
-                    style: TextStyle(color: Colors.grey),
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
                   ),
                 )
               : ListView.separated(
@@ -722,33 +751,42 @@ class _ProfileTabs extends StatelessWidget {
                   itemBuilder: (ctx, i) {
                     final v = profile.vehicles[i];
                     return Card(
-                      color: theme.cardColor,
+                      color: theme.scaffoldBackgroundColor,
+                      elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                         side: BorderSide(
                           color: v.isDefault
                               ? theme.primaryColor
-                              : Colors.white12,
+                              : theme.dividerColor.withValues(alpha: 0.3),
                         ),
                       ),
                       child: ListTile(
                         contentPadding: const EdgeInsets.all(16),
                         leading: Icon(
                           Icons.directions_car,
-                          color: v.isDefault ? theme.primaryColor : Colors.grey,
+                          color: v.isDefault
+                              ? theme.primaryColor
+                              : theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.5,
+                                ),
                           size: 32,
                         ),
                         title: Text(
                           '${v.year} ${v.make} ${v.model} (${v.color})',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface,
                             fontWeight: FontWeight.bold,
                             fontSize: 18,
                           ),
                         ),
                         subtitle: Text(
                           'Plate: ${v.licensePlate ?? 'N/A'}',
-                          style: TextStyle(color: theme.disabledColor),
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.6,
+                            ),
+                          ),
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -765,6 +803,7 @@ class _ProfileTabs extends StatelessWidget {
                                 backgroundColor: theme.primaryColor,
                                 padding: EdgeInsets.zero,
                                 visualDensity: VisualDensity.compact,
+                                side: BorderSide.none,
                               ),
                             IconButton(
                               icon: const Icon(Icons.edit, color: Colors.blue),
@@ -795,24 +834,30 @@ class _ProfileTabs extends StatelessWidget {
   }
 
   Widget _buildJobHistoryTab(BuildContext context) {
-    if (profile.jobHistory.isEmpty)
-      return const Center(
+    if (profile.jobHistory.isEmpty) {
+      return Center(
         child: Text(
           'No job history available.',
-          style: TextStyle(color: Colors.grey),
+          style: TextStyle(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+          ),
         ),
       );
+    }
 
     return Container(
       decoration: BoxDecoration(
-        color: theme.cardColor,
+        color: theme.scaffoldBackgroundColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white12),
+        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.3)),
       ),
       clipBehavior: Clip.antiAlias,
       child: ListView.separated(
         itemCount: profile.jobHistory.length,
-        separatorBuilder: (_, __) => const Divider(height: 1),
+        separatorBuilder: (_, __) => Divider(
+          height: 1,
+          color: theme.dividerColor.withValues(alpha: 0.3),
+        ),
         itemBuilder: (ctx, i) {
           final job = profile.jobHistory[i];
           Color statusColor = job.status == 'Completed'
@@ -828,14 +873,16 @@ class _ProfileTabs extends StatelessWidget {
             ),
             title: Text(
               job.serviceType,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: theme.colorScheme.onSurface,
                 fontWeight: FontWeight.bold,
               ),
             ),
             subtitle: Text(
               DateFormat('MMM dd, yyyy • HH:mm a').format(job.date),
-              style: const TextStyle(color: Colors.grey),
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
             ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
@@ -846,8 +893,8 @@ class _ProfileTabs extends StatelessWidget {
                   children: [
                     Text(
                       '\$${job.totalPaid.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
@@ -918,10 +965,10 @@ class _ProfileTabs extends StatelessWidget {
       context: parentContext,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) => AlertDialog(
-          backgroundColor: theme.scaffoldBackgroundColor,
+          backgroundColor: theme.cardColor,
           title: Text(
             isEditing ? 'Edit Vehicle Details' : 'Attach Vehicle',
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(color: theme.colorScheme.onSurface),
           ),
           content: Form(
             key: formKey,
@@ -935,20 +982,18 @@ class _ProfileTabs extends StatelessWidget {
                       key: ValueKey(selectedYear),
                       initialValue: selectedYear,
                       dropdownColor: theme.cardColor,
+                      style: TextStyle(color: theme.colorScheme.onSurface),
                       decoration: InputDecoration(
                         labelText: 'Year',
                         filled: true,
-                        fillColor: theme.cardColor,
+                        fillColor: theme.scaffoldBackgroundColor,
                         border: const OutlineInputBorder(),
                       ),
                       items: years
                           .map(
                             (y) => DropdownMenuItem(
                               value: y,
-                              child: Text(
-                                y.toString(),
-                                style: const TextStyle(color: Colors.white),
-                              ),
+                              child: Text(y.toString()),
                             ),
                           )
                           .toList(),
@@ -959,20 +1004,18 @@ class _ProfileTabs extends StatelessWidget {
                       key: ValueKey(selectedMake),
                       initialValue: selectedMake,
                       dropdownColor: theme.cardColor,
+                      style: TextStyle(color: theme.colorScheme.onSurface),
                       decoration: InputDecoration(
                         labelText: 'Make',
                         filled: true,
-                        fillColor: theme.cardColor,
+                        fillColor: theme.scaffoldBackgroundColor,
                         border: const OutlineInputBorder(),
                       ),
                       items: brandDatabase.keys
                           .map(
                             (make) => DropdownMenuItem(
                               value: make,
-                              child: Text(
-                                make,
-                                style: const TextStyle(color: Colors.white),
-                              ),
+                              child: Text(make),
                             ),
                           )
                           .toList(),
@@ -987,10 +1030,11 @@ class _ProfileTabs extends StatelessWidget {
                       key: ValueKey(selectedModel),
                       initialValue: selectedModel,
                       dropdownColor: theme.cardColor,
+                      style: TextStyle(color: theme.colorScheme.onSurface),
                       decoration: InputDecoration(
                         labelText: 'Model',
                         filled: true,
-                        fillColor: theme.cardColor,
+                        fillColor: theme.scaffoldBackgroundColor,
                         border: const OutlineInputBorder(),
                       ),
                       items: selectedMake == null
@@ -999,12 +1043,7 @@ class _ProfileTabs extends StatelessWidget {
                                 .map(
                                   (m) => DropdownMenuItem(
                                     value: m,
-                                    child: Text(
-                                      m,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                      ),
-                                    ),
+                                    child: Text(m),
                                   ),
                                 )
                                 .toList(),
@@ -1014,31 +1053,31 @@ class _ProfileTabs extends StatelessWidget {
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: colorCtrl,
+                      style: TextStyle(color: theme.colorScheme.onSurface),
                       decoration: InputDecoration(
-                        labelText: 'Exterior Color * (e.g., Pearl White)',
+                        labelText: 'Exterior Color *',
                         filled: true,
-                        fillColor: theme.cardColor,
+                        fillColor: theme.scaffoldBackgroundColor,
                         border: const OutlineInputBorder(),
                       ),
                       validator: (v) => v!.isEmpty ? 'Required' : null,
-                      style: const TextStyle(color: Colors.white),
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: plateCtrl,
+                      style: TextStyle(color: theme.colorScheme.onSurface),
                       decoration: InputDecoration(
                         labelText: 'License Plate (Optional)',
                         filled: true,
-                        fillColor: theme.cardColor,
+                        fillColor: theme.scaffoldBackgroundColor,
                         border: const OutlineInputBorder(),
                       ),
-                      style: const TextStyle(color: Colors.white),
                     ),
                     const SizedBox(height: 16),
                     SwitchListTile(
-                      title: const Text(
+                      title: Text(
                         'Set as Primary Vehicle',
-                        style: TextStyle(color: Colors.white),
+                        style: TextStyle(color: theme.colorScheme.onSurface),
                       ),
                       value: isDefault,
                       activeColor: theme.primaryColor,
@@ -1082,7 +1121,6 @@ class _ProfileTabs extends StatelessWidget {
                       ),
                     );
                   }
-
                   Navigator.pop(ctx);
                 }
               },

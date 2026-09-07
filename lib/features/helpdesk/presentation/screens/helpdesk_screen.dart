@@ -74,8 +74,9 @@ class _HelpdeskScreenState extends State<HelpdeskScreen> {
                       }
                     },
                     builder: (context, state) {
-                      if (state is HelpdeskLoading)
+                      if (state is HelpdeskLoading) {
                         return const Center(child: CircularProgressIndicator());
+                      }
                       if (state is HelpdeskLoaded) {
                         final filtered = state.tickets.where((t) {
                           final matchesSearch =
@@ -115,22 +116,26 @@ class _HelpdeskScreenState extends State<HelpdeskScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Rodl Helpdesk',
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Rodl Helpdesk',
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Manage active support disputes and escalations.',
-              style: TextStyle(color: Colors.grey.shade600),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                'Manage active support disputes and escalations.',
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+            ],
+          ),
         ),
         Row(
           children: [
@@ -139,48 +144,59 @@ class _HelpdeskScreenState extends State<HelpdeskScreen> {
               decoration: BoxDecoration(
                 color: theme.cardColor,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: theme.dividerColor),
+                border: Border.all(
+                  color: theme.dividerColor.withValues(alpha: 0.4),
+                ),
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<int?>(
                   value: _priorityFilter,
                   dropdownColor: theme.cardColor,
-                  hint: const Text(
+                  hint: Text(
                     "Filter Priority",
-                    style: TextStyle(color: Colors.white),
+                    style: TextStyle(color: theme.colorScheme.onSurface),
                   ),
-                  items: const [
+                  items: [
                     DropdownMenuItem(
                       value: null,
                       child: Text(
                         "All Priorities",
-                        style: TextStyle(color: Colors.white),
+                        style: TextStyle(color: theme.colorScheme.onSurface),
                       ),
                     ),
-                    DropdownMenuItem(
+                    const DropdownMenuItem(
                       value: 3,
                       child: Text(
                         "Urgent (SLA Alert)",
-                        style: TextStyle(color: Colors.red),
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                    DropdownMenuItem(
+                    const DropdownMenuItem(
                       value: 2,
                       child: Text(
                         "High",
-                        style: TextStyle(color: Colors.orange),
+                        style: TextStyle(
+                          color: Colors.orange,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     DropdownMenuItem(
                       value: 1,
                       child: Text(
                         "Normal",
-                        style: TextStyle(color: Colors.white),
+                        style: TextStyle(color: theme.colorScheme.onSurface),
                       ),
                     ),
                     DropdownMenuItem(
                       value: 0,
-                      child: Text("Low", style: TextStyle(color: Colors.white)),
+                      child: Text(
+                        "Low",
+                        style: TextStyle(color: theme.colorScheme.onSurface),
+                      ),
                     ),
                   ],
                   onChanged: (val) => setState(() => _priorityFilter = val),
@@ -191,6 +207,7 @@ class _HelpdeskScreenState extends State<HelpdeskScreen> {
             SizedBox(
               width: 300,
               child: TextField(
+                style: TextStyle(color: theme.colorScheme.onSurface),
                 decoration: InputDecoration(
                   hintText: 'Search ID, Subject, Customer...',
                   prefixIcon: const Icon(Icons.search),
@@ -198,7 +215,9 @@ class _HelpdeskScreenState extends State<HelpdeskScreen> {
                   fillColor: theme.cardColor,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide.none,
+                    borderSide: BorderSide(
+                      color: theme.dividerColor.withValues(alpha: 0.3),
+                    ),
                   ),
                 ),
                 onChanged: (val) =>
@@ -217,55 +236,66 @@ class _HelpdeskScreenState extends State<HelpdeskScreen> {
     ThemeData theme,
     BuildContext blocContext,
   ) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildDragTargetColumn(
-          'Open',
-          0,
-          tickets.where((t) => t.status == 0).toList(),
-          theme,
-          Colors.blue,
-          blocContext,
-        ),
-        const SizedBox(width: 12),
-        _buildDragTargetColumn(
-          'In Progress',
-          1,
-          tickets.where((t) => t.status == 1).toList(),
-          theme,
-          Colors.orange,
-          blocContext,
-        ),
-        const SizedBox(width: 12),
-        _buildDragTargetColumn(
-          'Awaiting Cust.',
-          2,
-          tickets.where((t) => t.status == 2).toList(),
-          theme,
-          Colors.amber,
-          blocContext,
-        ),
-        const SizedBox(width: 12),
-        _buildDragTargetColumn(
-          'Escalated',
-          3,
-          tickets.where((t) => t.status == 3).toList(),
-          theme,
-          Colors.red,
-          blocContext,
-        ),
-        const SizedBox(width: 12),
-        // Group Resolved (4) and Closed (5) together. Defaults to Closed (5) when dropped here.
-        _buildDragTargetColumn(
-          'Resolved/Closed',
-          5,
-          tickets.where((t) => t.status >= 4).toList(),
-          theme,
-          Colors.green,
-          blocContext,
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: constraints.maxWidth),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildDragTargetColumn(
+                    'Open',
+                    0,
+                    tickets.where((t) => t.status == 0).toList(),
+                    theme,
+                    Colors.blue,
+                    blocContext,
+                  ),
+                  const SizedBox(width: 12),
+                  _buildDragTargetColumn(
+                    'In Progress',
+                    1,
+                    tickets.where((t) => t.status == 1).toList(),
+                    theme,
+                    Colors.orange,
+                    blocContext,
+                  ),
+                  const SizedBox(width: 12),
+                  _buildDragTargetColumn(
+                    'Awaiting Cust.',
+                    2,
+                    tickets.where((t) => t.status == 2).toList(),
+                    theme,
+                    Colors.amber.shade700,
+                    blocContext,
+                  ),
+                  const SizedBox(width: 12),
+                  _buildDragTargetColumn(
+                    'Escalated',
+                    3,
+                    tickets.where((t) => t.status == 3).toList(),
+                    theme,
+                    Colors.red,
+                    blocContext,
+                  ),
+                  const SizedBox(width: 12),
+                  _buildDragTargetColumn(
+                    'Resolved/Closed',
+                    5,
+                    tickets.where((t) => t.status >= 4).toList(),
+                    theme,
+                    Colors.green,
+                    blocContext,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -277,11 +307,11 @@ class _HelpdeskScreenState extends State<HelpdeskScreen> {
     Color color,
     BuildContext blocContext,
   ) {
-    return Expanded(
+    return Container(
+      width: 280,
       child: DragTarget<SupportTicketModel>(
         onWillAcceptWithDetails: (details) =>
-            details.data.status !=
-            targetStatus, // Only accept if it's actually changing status
+            details.data.status != targetStatus,
         onAcceptWithDetails: (details) {
           blocContext.read<HelpdeskBloc>().add(
             UpdateTicketStatus(
@@ -298,12 +328,15 @@ class _HelpdeskScreenState extends State<HelpdeskScreen> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: isHovering
-                  ? color.withValues(alpha: 0.1)
-                  : theme.cardColor.withValues(alpha: 0.5),
+                  ? color.withValues(alpha: 0.08)
+                  : theme.cardColor.withValues(alpha: 0.6),
               borderRadius: BorderRadius.circular(12),
-              border: isHovering
-                  ? Border.all(color: color, width: 2)
-                  : Border.all(color: Colors.transparent, width: 2),
+              border: Border.all(
+                color: isHovering
+                    ? color
+                    : theme.dividerColor.withValues(alpha: 0.2),
+                width: isHovering ? 2 : 1,
+              ),
             ),
             child: Column(
               children: [
@@ -323,10 +356,10 @@ class _HelpdeskScreenState extends State<HelpdeskScreen> {
                         const SizedBox(width: 8),
                         Text(
                           title,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: Colors.white,
+                            fontSize: 15,
+                            color: theme.colorScheme.onSurface,
                           ),
                         ),
                       ],
@@ -337,14 +370,15 @@ class _HelpdeskScreenState extends State<HelpdeskScreen> {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: theme.dividerColor,
+                        color: theme.dividerColor.withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         '${tickets.length}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: theme.colorScheme.onSurface,
+                          fontSize: 12,
                         ),
                       ),
                     ),
@@ -400,14 +434,17 @@ class _HelpdeskScreenState extends State<HelpdeskScreen> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(24),
             ),
-            title: const Text(
+            title: Text(
               'Log Helpdesk Ticket',
-              style: TextStyle(color: Colors.white),
+              style: TextStyle(
+                color: theme.colorScheme.onSurface,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             content: Form(
               key: formKey,
-              child: SizedBox(
-                width: 500,
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 500),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -415,8 +452,9 @@ class _HelpdeskScreenState extends State<HelpdeskScreen> {
                       displayStringForOption: (c) =>
                           '${c.fullName} - ${c.phoneNumber}',
                       optionsBuilder: (textEditingValue) async {
-                        if (textEditingValue.text.length < 2)
+                        if (textEditingValue.text.length < 2) {
                           return const Iterable<CustomerCrmDto>.empty();
+                        }
                         final results = await blocContext
                             .read<HelpdeskBloc>()
                             .searchCustomers(textEditingValue.text);
@@ -442,6 +480,9 @@ class _HelpdeskScreenState extends State<HelpdeskScreen> {
                             return TextFormField(
                               controller: controller,
                               focusNode: focusNode,
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface,
+                              ),
                               decoration: InputDecoration(
                                 labelText: 'Search CRM Customer (Name, Phone)',
                                 filled: true,
@@ -453,7 +494,6 @@ class _HelpdeskScreenState extends State<HelpdeskScreen> {
                                 selectedCustomerId = null;
                                 nameCtrl.text = val;
                               },
-                              style: const TextStyle(color: Colors.white),
                               validator: (v) => v!.isEmpty ? 'Required' : null,
                             );
                           },
@@ -461,64 +501,75 @@ class _HelpdeskScreenState extends State<HelpdeskScreen> {
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: subjectCtrl,
+                      style: TextStyle(color: theme.colorScheme.onSurface),
                       decoration: InputDecoration(
                         labelText: 'Ticket Subject *',
                         filled: true,
                         fillColor: theme.cardColor,
                         border: const OutlineInputBorder(),
                       ),
-                      style: const TextStyle(color: Colors.white),
                       validator: (v) => v!.isEmpty ? 'Required' : null,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: descCtrl,
                       maxLines: 4,
+                      style: TextStyle(color: theme.colorScheme.onSurface),
                       decoration: InputDecoration(
                         labelText: 'Detailed Description / Notes',
                         filled: true,
                         fillColor: theme.cardColor,
                         border: const OutlineInputBorder(),
                       ),
-                      style: const TextStyle(color: Colors.white),
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<int>(
                       value: priority,
                       dropdownColor: theme.cardColor,
+                      style: TextStyle(color: theme.colorScheme.onSurface),
                       decoration: InputDecoration(
                         labelText: 'Priority Level',
                         filled: true,
                         fillColor: theme.cardColor,
                         border: const OutlineInputBorder(),
                       ),
-                      items: const [
+                      items: [
                         DropdownMenuItem(
                           value: 0,
                           child: Text(
                             'Low',
-                            style: TextStyle(color: Colors.white),
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
+                            ),
                           ),
                         ),
                         DropdownMenuItem(
                           value: 1,
                           child: Text(
                             'Normal',
-                            style: TextStyle(color: Colors.white),
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
+                            ),
                           ),
                         ),
-                        DropdownMenuItem(
+                        const DropdownMenuItem(
                           value: 2,
                           child: Text(
                             'High',
-                            style: TextStyle(color: Colors.orange),
+                            style: TextStyle(
+                              color: Colors.orange,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
-                        DropdownMenuItem(
+                        const DropdownMenuItem(
                           value: 3,
                           child: Text(
                             'Urgent (SLA Alert)',
-                            style: TextStyle(color: Colors.red),
+                            style: TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ],
@@ -570,17 +621,19 @@ class _DraggableTicketCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The visual UI of the card
+    final theme = Theme.of(context);
+
     Widget cardUI = Card(
-      elevation: 2,
+      elevation: 1,
       margin: EdgeInsets.zero,
+      color: theme.cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
         side: BorderSide(
           color: ticket.priority == 3
-              ? Colors.red.withValues(alpha: 0.5)
-              : Colors.transparent,
-          width: 2,
+              ? Colors.red.withValues(alpha: 0.6)
+              : theme.dividerColor.withValues(alpha: 0.2),
+          width: ticket.priority == 3 ? 2 : 1,
         ),
       ),
       child: InkWell(
@@ -597,9 +650,9 @@ class _DraggableTicketCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       ticket.subject,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: theme.colorScheme.onSurface,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -611,7 +664,7 @@ class _DraggableTicketCard extends StatelessWidget {
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: ticket.priorityColor.withValues(alpha: 0.2),
+                      color: ticket.priorityColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -628,7 +681,10 @@ class _DraggableTicketCard extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 ticket.customerName,
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -638,13 +694,16 @@ class _DraggableTicketCard extends StatelessWidget {
                 children: [
                   Text(
                     DateFormat('MMM dd, hh:mm a').format(ticket.createdAt),
-                    style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
-                  ),
-                  Text(
-                    '#${ticket.id.length > 6 ? ticket.id.substring(0, 6) : ticket.id}',
                     style: TextStyle(
                       fontSize: 10,
-                      color: Colors.grey.shade400,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  Text(
+                    '#${ticket.id.length > 6 ? ticket.id.substring(0, 6).toUpperCase() : ticket.id.toUpperCase()}',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                       fontFamily: 'monospace',
                     ),
                   ),
@@ -656,24 +715,18 @@ class _DraggableTicketCard extends StatelessWidget {
       ),
     );
 
-    // Make it long-press draggable
     return LongPressDraggable<SupportTicketModel>(
       data: ticket,
-      delay: const Duration(
-        milliseconds: 150,
-      ), // Slight delay ensures we can still scroll lists on touch devices
+      delay: const Duration(milliseconds: 150),
       feedback: Material(
         color: Colors.transparent,
-        elevation: 12,
+        elevation: 8,
         child: SizedBox(
-          width: 300, // Keep width fixed while dragging
+          width: 260,
           child: Opacity(opacity: 0.9, child: cardUI),
         ),
       ),
-      childWhenDragging: Opacity(
-        opacity: 0.3,
-        child: cardUI,
-      ), // Dim original while dragging
+      childWhenDragging: Opacity(opacity: 0.3, child: cardUI),
       child: cardUI,
     );
   }
@@ -695,308 +748,338 @@ class _DraggableTicketCard extends StatelessWidget {
             ),
             backgroundColor: theme.scaffoldBackgroundColor,
             child: Container(
-              width: 700,
+              constraints: const BoxConstraints(maxWidth: 700),
               padding: const EdgeInsets.all(32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          ticket.subject,
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(ctx),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-
-                  // --- FULL CUSTOMER DETAILS GRID ---
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest
-                          .withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: theme.dividerColor),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Customer Identity',
-                                style: TextStyle(
-                                  color: theme.disabledColor,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.person,
-                                    size: 16,
-                                    color: Colors.blue,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    ticket.customerName,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                'Contact Information',
-                                style: TextStyle(
-                                  color: theme.disabledColor,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.phone,
-                                    size: 16,
-                                    color: Colors.green,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    ticket.customerPhone,
-                                    style: const TextStyle(color: Colors.white),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.email,
-                                    size: 16,
-                                    color: Colors.orange,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    ticket.customerEmail,
-                                    style: const TextStyle(color: Colors.white),
-                                  ),
-                                ],
-                              ),
-                            ],
+                          child: Text(
+                            ticket.subject,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.onSurface,
+                            ),
                           ),
                         ),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Ticket Metadata',
-                                style: TextStyle(
-                                  color: theme.disabledColor,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Chip(
-                                label: Text('Priority: ${ticket.priorityText}'),
-                                backgroundColor: ticket.priorityColor
-                                    .withValues(alpha: 0.2),
-                                labelStyle: TextStyle(
-                                  color: ticket.priorityColor,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                padding: EdgeInsets.zero,
-                                visualDensity: VisualDensity.compact,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Created At',
-                                style: TextStyle(
-                                  color: theme.disabledColor,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                DateFormat(
-                                  'MMM dd, yyyy - hh:mm a',
-                                ).format(ticket.createdAt),
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                            ],
+                        IconButton(
+                          icon: Icon(
+                            Icons.close,
+                            color: theme.colorScheme.onSurface,
                           ),
+                          onPressed: () => Navigator.pop(ctx),
                         ),
                       ],
                     ),
-                  ),
+                    const SizedBox(height: 24),
 
-                  const Divider(height: 32),
-                  Text(
-                    'Ticket Description',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest
-                          .withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      ticket.description.isEmpty
-                          ? 'No description provided.'
-                          : ticket.description,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: Colors.white70,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'CRM Controls',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      const Text(
-                        'Current Status:',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
+                    // Full Customer Details Card
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: theme.cardColor,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: theme.dividerColor.withValues(alpha: 0.2),
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: DropdownButtonFormField<int>(
-                          value: currentStatus,
-                          dropdownColor: theme.cardColor,
-                          decoration: InputDecoration(
-                            border: const OutlineInputBorder(),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            filled: true,
-                            fillColor: theme.cardColor,
-                          ),
-                          items: const [
-                            DropdownMenuItem(
-                              value: 0,
-                              child: Text(
-                                'Open',
-                                style: TextStyle(color: Colors.blue),
-                              ),
-                            ),
-                            DropdownMenuItem(
-                              value: 1,
-                              child: Text(
-                                'In Progress',
-                                style: TextStyle(color: Colors.orange),
-                              ),
-                            ),
-                            DropdownMenuItem(
-                              value: 2,
-                              child: Text(
-                                'Waiting on Customer',
-                                style: TextStyle(color: Colors.amber),
-                              ),
-                            ),
-                            DropdownMenuItem(
-                              value: 3,
-                              child: Text(
-                                'Escalated',
-                                style: TextStyle(color: Colors.red),
-                              ),
-                            ),
-                            DropdownMenuItem(
-                              value: 4,
-                              child: Text(
-                                'Resolved',
-                                style: TextStyle(color: Colors.green),
-                              ),
-                            ),
-                            DropdownMenuItem(
-                              value: 5,
-                              child: Text(
-                                'Closed',
-                                style: TextStyle(color: Colors.grey),
-                              ),
-                            ),
-                          ],
-                          onChanged: (val) {
-                            if (val != null) {
-                              setModalState(() => currentStatus = val);
-                              blocContext.read<HelpdeskBloc>().add(
-                                UpdateTicketStatus(
-                                  ticketId: ticket.id,
-                                  newStatus: val,
-                                ),
-                              );
-                            }
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: notesController,
-                    maxLines: 3,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      labelText:
-                          'Internal Admin Notes (Not visible to customer)',
-                      alignLabelWithHint: true,
-                      border: const OutlineInputBorder(),
-                      filled: true,
-                      fillColor: theme.cardColor,
-                      suffixIcon: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          IconButton(
-                            icon: const Icon(Icons.save, color: Colors.blue),
-                            tooltip: 'Save Note',
-                            onPressed: () =>
-                                blocContext.read<HelpdeskBloc>().add(
-                                  UpdateTicketNote(
-                                    ticketId: ticket.id,
-                                    note: notesController.text,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Customer Identity',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.5),
+                                    fontSize: 12,
                                   ),
                                 ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.person,
+                                      size: 16,
+                                      color: Colors.blue,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      ticket.customerName,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: theme.colorScheme.onSurface,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'Contact Information',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.5),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.phone,
+                                      size: 16,
+                                      color: Colors.green,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      ticket.customerPhone.isEmpty
+                                          ? 'N/A'
+                                          : ticket.customerPhone,
+                                      style: TextStyle(
+                                        color: theme.colorScheme.onSurface,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.email,
+                                      size: 16,
+                                      color: Colors.orange,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      ticket.customerEmail.isEmpty
+                                          ? 'N/A'
+                                          : ticket.customerEmail,
+                                      style: TextStyle(
+                                        color: theme.colorScheme.onSurface,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Ticket Metadata',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.5),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Chip(
+                                  label: Text(
+                                    'Priority: ${ticket.priorityText}',
+                                  ),
+                                  backgroundColor: ticket.priorityColor
+                                      .withValues(alpha: 0.15),
+                                  labelStyle: TextStyle(
+                                    color: ticket.priorityColor,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  side: BorderSide.none,
+                                  padding: EdgeInsets.zero,
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Created At',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.5),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  DateFormat(
+                                    'MMM dd, yyyy - hh:mm a',
+                                  ).format(ticket.createdAt),
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onSurface,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                ],
+
+                    const SizedBox(height: 24),
+                    Text(
+                      'Ticket Description',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: theme.cardColor,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: theme.dividerColor.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: Text(
+                        ticket.description.isEmpty
+                            ? 'No description provided.'
+                            : ticket.description,
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.8,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'CRM Controls',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Text(
+                          'Current Status:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: DropdownButtonFormField<int>(
+                            value: currentStatus,
+                            dropdownColor: theme.cardColor,
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
+                            ),
+                            decoration: InputDecoration(
+                              border: const OutlineInputBorder(),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              filled: true,
+                              fillColor: theme.cardColor,
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 0,
+                                child: Text(
+                                  'Open',
+                                  style: TextStyle(color: Colors.blue),
+                                ),
+                              ),
+                              DropdownMenuItem(
+                                value: 1,
+                                child: Text(
+                                  'In Progress',
+                                  style: TextStyle(color: Colors.orange),
+                                ),
+                              ),
+                              DropdownMenuItem(
+                                value: 2,
+                                child: Text(
+                                  'Waiting on Customer',
+                                  style: TextStyle(color: Colors.amber),
+                                ),
+                              ),
+                              DropdownMenuItem(
+                                value: 3,
+                                child: Text(
+                                  'Escalated',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ),
+                              DropdownMenuItem(
+                                value: 4,
+                                child: Text(
+                                  'Resolved',
+                                  style: TextStyle(color: Colors.green),
+                                ),
+                              ),
+                              DropdownMenuItem(
+                                value: 5,
+                                child: Text(
+                                  'Closed',
+                                  style: TextStyle(color: Colors.grey),
+                                ),
+                              ),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) {
+                                setModalState(() => currentStatus = val);
+                                blocContext.read<HelpdeskBloc>().add(
+                                  UpdateTicketStatus(
+                                    ticketId: ticket.id,
+                                    newStatus: val,
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: notesController,
+                      maxLines: 3,
+                      style: TextStyle(color: theme.colorScheme.onSurface),
+                      decoration: InputDecoration(
+                        labelText:
+                            'Internal Admin Notes (Not visible to customer)',
+                        alignLabelWithHint: true,
+                        border: const OutlineInputBorder(),
+                        filled: true,
+                        fillColor: theme.cardColor,
+                        suffixIcon: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.save, color: Colors.blue),
+                              tooltip: 'Save Note',
+                              onPressed: () =>
+                                  blocContext.read<HelpdeskBloc>().add(
+                                    UpdateTicketNote(
+                                      ticketId: ticket.id,
+                                      note: notesController.text,
+                                    ),
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           );

@@ -94,7 +94,10 @@ class _ActiveCallDialogState extends State<ActiveCallDialog> {
 
     return Dialog(
       backgroundColor: theme.cardColor,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+        side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.2)),
+      ),
       child: Container(
         width: 380,
         padding: const EdgeInsets.all(32),
@@ -109,16 +112,20 @@ class _ActiveCallDialogState extends State<ActiveCallDialog> {
             const SizedBox(height: 16),
             Text(
               widget.peerName,
-              style: const TextStyle(
+              style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
-                fontSize: 20,
-                color: Colors.white,
+                color: theme.colorScheme.onSurface,
               ),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 4),
             Text(
               widget.callReason,
-              style: const TextStyle(color: Colors.grey, fontSize: 13),
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                fontSize: 13,
+              ),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
             Text(
@@ -126,7 +133,7 @@ class _ActiveCallDialogState extends State<ActiveCallDialog> {
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: _isConnected ? Colors.greenAccent : Colors.orangeAccent,
+                color: _isConnected ? Colors.green : Colors.orange,
               ),
             ),
             const SizedBox(height: 32),
@@ -136,7 +143,9 @@ class _ActiveCallDialogState extends State<ActiveCallDialog> {
                 IconButton.filledTonal(
                   iconSize: 28,
                   icon: Icon(_agoraService.isMuted ? Icons.mic_off : Icons.mic),
-                  color: _agoraService.isMuted ? Colors.red : Colors.white,
+                  color: _agoraService.isMuted
+                      ? Colors.red
+                      : theme.colorScheme.onSurface,
                   onPressed: () async {
                     await _agoraService.toggleMute();
                     setState(() {});
@@ -160,8 +169,8 @@ class _ActiveCallDialogState extends State<ActiveCallDialog> {
                         : Icons.volume_off,
                   ),
                   color: _agoraService.isSpeakerPhone
-                      ? Colors.blueAccent
-                      : Colors.white,
+                      ? Colors.blue
+                      : theme.colorScheme.onSurface,
                   onPressed: () async {
                     await _agoraService.toggleSpeaker();
                     setState(() {});

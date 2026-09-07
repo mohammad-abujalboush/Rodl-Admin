@@ -4,15 +4,26 @@ import '../../data/models/dispatch_graph_model.dart';
 class EdgePainter extends CustomPainter {
   final List<DispatchNode> nodes;
   final List<DispatchEdge> edges;
+  final Color lineColor;
+  final Color dotColor;
 
-  EdgePainter({required this.nodes, required this.edges});
+  EdgePainter({
+    required this.nodes,
+    required this.edges,
+    required this.lineColor,
+    required this.dotColor,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.grey.shade400
+      ..color = lineColor.withValues(alpha: 0.6)
       ..strokeWidth = 3.0
       ..style = PaintingStyle.stroke;
+
+    final dotPaint = Paint()
+      ..color = dotColor
+      ..style = PaintingStyle.fill;
 
     for (var edge in edges) {
       final fromNode = nodes.cast<DispatchNode?>().firstWhere(
@@ -25,37 +36,19 @@ class EdgePainter extends CustomPainter {
       );
 
       if (fromNode != null && toNode != null) {
-        // Calculate center points of the nodes (assuming node width is approx 200, height 100)
         final startX = fromNode.x + 200;
         final startY = fromNode.y + 50;
         final endX = toNode.x;
         final endY = toNode.y + 50;
 
-        // Draw a smooth cubic bezier curve
         final path = Path();
         path.moveTo(startX, startY);
-        path.cubicTo(
-          startX + 100,
-          startY, // Control point 1
-          endX - 100,
-          endY, // Control point 2
-          endX,
-          endY, // Destination
-        );
+        path.cubicTo(startX + 100, startY, endX - 100, endY, endX, endY);
 
         canvas.drawPath(path, paint);
 
-        // Draw connection dots
-        canvas.drawCircle(
-          Offset(startX, startY),
-          6,
-          Paint()..color = Colors.blueGrey,
-        );
-        canvas.drawCircle(
-          Offset(endX, endY),
-          6,
-          Paint()..color = Colors.blueGrey,
-        );
+        canvas.drawCircle(Offset(startX, startY), 6, dotPaint);
+        canvas.drawCircle(Offset(endX, endY), 6, dotPaint);
       }
     }
   }

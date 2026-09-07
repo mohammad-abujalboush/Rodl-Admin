@@ -30,15 +30,15 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
     return BlocProvider(
       create: (_) => sl<IncidentReviewBloc>(),
       child: Scaffold(
-        backgroundColor: theme.scaffoldBackgroundColor,
+        backgroundColor: theme.scaffoldBackgroundColor, // Light theme compliant
         body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(24.0),
+            padding: const EdgeInsets.all(32.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildHeader(theme, context),
-                const SizedBox(height: 24),
+                const SizedBox(height: 32),
                 Expanded(
                   child: BlocConsumer<IncidentReviewBloc, IncidentReviewState>(
                     listener: (context, state) {
@@ -79,17 +79,32 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
   }
 
   Widget _buildHeader(ThemeData theme, BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          'Job History',
-          style: theme.textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: theme.primaryColor,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Job History & GPS Archive',
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Review past dispatch incidents, status timelines, and driver routes.',
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  fontSize: 16,
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 16),
         Builder(
           builder: (blocContext) => Row(
             children: [
@@ -97,13 +112,17 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
                 width: 350,
                 child: TextField(
                   controller: _searchController,
+                  style: TextStyle(color: theme.colorScheme.onSurface),
                   decoration: InputDecoration(
                     hintText: 'Enter Job ID...',
                     prefixIcon: const Icon(Icons.history),
                     filled: true,
                     fillColor: theme.cardColor,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: theme.dividerColor.withValues(alpha: 0.3),
+                      ),
                     ),
                   ),
                   onSubmitted: (val) {
@@ -114,16 +133,20 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
                 ),
               ),
               const SizedBox(width: 16),
-              ElevatedButton.icon(
+              FilledButton.icon(
                 icon: const Icon(Icons.search),
-                label: const Text('Search'),
-                style: ElevatedButton.styleFrom(
+                label: const Text(
+                  'Search',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
-                    vertical: 16,
+                    vertical: 18,
                   ),
-                  backgroundColor: theme.primaryColor,
-                  foregroundColor: theme.colorScheme.onPrimary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 onPressed: () {
                   blocContext.read<IncidentReviewBloc>().add(
@@ -131,7 +154,7 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
                   );
                 },
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               TextButton.icon(
                 icon: const Icon(Icons.clear_all),
                 label: const Text('Clear'),
@@ -157,20 +180,22 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
           Icon(
             Icons.travel_explore,
             size: 80,
-            color: theme.disabledColor.withOpacity(0.5),
+            color: theme.disabledColor.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 16),
           Text(
-            'Search History',
+            'Search Archive',
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.bold,
-              color: theme.disabledColor,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Enter a Job ID to see the timeline and GPS map.',
-            style: TextStyle(color: theme.disabledColor),
+            'Enter a precise Job ID to load the timeline and GPS map.',
+            style: TextStyle(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+            ),
           ),
         ],
       ),
@@ -187,12 +212,12 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildJobSummaryCard(dossier.job, theme),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
               Expanded(child: _buildTimelineCard(dossier.timeline, theme)),
             ],
           ),
         ),
-        const SizedBox(width: 24),
+        const SizedBox(width: 32),
         Expanded(
           flex: 2,
           child: _buildBreadcrumbMapCard(dossier.breadcrumbs, theme),
@@ -206,12 +231,12 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
       child: Column(
         children: [
           _buildJobSummaryCard(dossier.job, theme),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           SizedBox(
             height: 350,
             child: _buildBreadcrumbMapCard(dossier.breadcrumbs, theme),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           _buildTimelineCard(dossier.timeline, theme, isMobile: true),
         ],
       ),
@@ -221,9 +246,15 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
   Widget _buildJobSummaryCard(HistoricalJobModel job, ThemeData theme) {
     final currencyFormat = NumberFormat.currency(symbol: '\$');
     return Card(
-      elevation: 2,
+      elevation: 0,
+      color: theme.cardColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        // FIX: Corrected Border syntax
+        side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.3)),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -231,30 +262,35 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Job ID: ${job.requestId.substring(0, 8)}',
-                  style: const TextStyle(
+                  'Job ID: ${job.requestId.substring(0, 8).toUpperCase()}',
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 18,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
                 Chip(
                   label: Text(
                     job.finalStatusText,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
+                      color: job.finalStatus == 3
+                          ? Colors.green.shade700
+                          : Colors.red.shade700,
                     ),
                   ),
                   backgroundColor:
                       (job.finalStatus == 3 ? Colors.green : Colors.red)
-                          .withOpacity(0.1),
-                  side: BorderSide(
-                    color: job.finalStatus == 3 ? Colors.green : Colors.red,
-                  ),
+                          .withValues(alpha: 0.1),
+                  side: BorderSide.none,
                 ),
               ],
             ),
-            const Divider(height: 24),
+            Divider(
+              height: 32,
+              color: theme.dividerColor.withValues(alpha: 0.3),
+            ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -263,12 +299,22 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
                   children: [
                     Text(
                       'Customer: ${job.customerName}',
-                      style: TextStyle(color: Colors.grey.shade700),
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.8,
+                        ),
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Driver: ${job.driverName}',
-                      style: TextStyle(color: Colors.grey.shade700),
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.8,
+                        ),
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ],
                 ),
@@ -276,7 +322,7 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
                   currencyFormat.format(job.totalFare),
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 20,
+                    fontSize: 24,
                     color: theme.primaryColor,
                   ),
                 ),
@@ -294,23 +340,47 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
     bool isMobile = false,
   }) {
     if (timeline.isEmpty) {
-      return const Card(
-        child: Center(child: Text('No timeline events found.')),
+      return Card(
+        elevation: 0,
+        color: theme.cardColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          // FIX: Corrected Border syntax
+          side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.3)),
+        ),
+        child: Center(
+          child: Text(
+            'No timeline events found.',
+            style: TextStyle(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
+          ),
+        ),
       );
     }
 
     return Card(
-      elevation: 2,
+      elevation: 0,
+      color: theme.cardColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        // FIX: Corrected Border syntax
+        side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.3)),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Status Timeline',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: theme.colorScheme.onSurface,
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
             Expanded(
               flex: isMobile ? 0 : 1,
               child: ListView.builder(
@@ -336,17 +406,28 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
                           Expanded(
                             child: Container(
                               width: 2,
-                              color: theme.dividerColor,
+                              color: theme.dividerColor.withValues(alpha: 0.5),
                             ),
                           ),
                       ],
                     ),
                     title: Text(
                       _getStatusString(event.status),
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurface,
+                      ),
                     ),
-                    subtitle: Text(
-                      'Changed by: ${event.changedBy}\n${event.notes ?? ""}',
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 4.0),
+                      child: Text(
+                        'Changed by: ${event.changedBy}\n${event.notes ?? ""}',
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
+                          ),
+                        ),
+                      ),
                     ),
                     trailing: Text(
                       DateFormat('HH:mm:ss\nMMM dd').format(event.timestamp),
@@ -354,6 +435,7 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
                       style: TextStyle(
                         fontSize: 12,
                         color: theme.disabledColor,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   );
@@ -372,11 +454,19 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
   ) {
     if (breadcrumbs.isEmpty) {
       return Card(
-        elevation: 2,
+        elevation: 0,
+        color: theme.cardColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          // FIX: Corrected Border syntax
+          side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.3)),
+        ),
         child: Center(
           child: Text(
             'No GPS map data recorded for this job.',
-            style: TextStyle(color: theme.disabledColor),
+            style: TextStyle(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+            ),
           ),
         ),
       );
@@ -388,8 +478,13 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
         : const LatLng(0, 0);
 
     return Card(
-      elevation: 2,
+      elevation: 0,
       clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        // FIX: Corrected Border syntax
+        side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.3)),
+      ),
       child: Stack(
         children: [
           GoogleMap(
@@ -430,18 +525,24 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
             myLocationEnabled: false,
           ),
           Positioned(
-            top: 16,
-            left: 16,
+            top: 24,
+            left: 24,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.black87,
+                color: theme.colorScheme.surface.withValues(alpha: 0.9),
                 borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 8,
+                  ),
+                ],
               ),
-              child: const Text(
+              child: Text(
                 'GPS Route Map',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: theme.colorScheme.onSurface,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -457,11 +558,17 @@ class _IncidentReviewScreenState extends State<IncidentReviewScreen> {
       case 0:
         return 'Pending Request';
       case 1:
-        return 'Driver Assigned';
+        return 'Driver Accepted';
       case 2:
         return 'Driver Arrived';
       case 3:
         return 'Job Completed';
+      case 4:
+        return 'Waiting on Customer';
+      case 5:
+        return 'Loading Vehicle';
+      case 6:
+        return 'In Transit';
       case 99:
         return 'Job Cancelled';
       default:

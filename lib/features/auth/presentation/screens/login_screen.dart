@@ -36,6 +36,10 @@ class _LoginScreenState extends State<LoginScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
+      // Ensure the background provides contrast for the login card
+      backgroundColor: theme.colorScheme.surfaceContainerHighest.withValues(
+        alpha: 0.3,
+      ),
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthAuthenticated) {
@@ -57,11 +61,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 constraints: const BoxConstraints(maxWidth: 400),
                 padding: const EdgeInsets.all(32.0),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.surface,
+                  color: theme.cardColor,
                   borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: theme.dividerColor.withValues(alpha: 0.2),
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 20,
                       offset: const Offset(0, 10),
                     ),
@@ -73,16 +80,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // --- UPGRADED LOGO INJECTION ---
-                      Image.asset(
-                        'assets/images/app-icon.jpeg',
-                        height: 64,
-                        // If your logo is a solid shape and you want it to match the theme color, uncomment the line below:
-                        // color: theme.primaryColor,
-                      ),
+                      Image.asset('assets/images/app-icon.jpeg', height: 64),
                       const SizedBox(height: 16),
                       Text(
-                        'Rodl Command Center', // --- UPDATED TEXT ---
+                        'Rodl Command Center',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.bold,
@@ -94,7 +95,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         'Sign in to access the dispatch radar and fleet controls.',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey[600],
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 32),
@@ -103,11 +106,20 @@ class _LoginScreenState extends State<LoginScreen> {
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
+                        style: TextStyle(color: theme.colorScheme.onSurface),
                         decoration: InputDecoration(
                           labelText: 'Email Address',
-                          prefixIcon: const Icon(Icons.email_outlined),
+                          filled: true,
+                          fillColor: theme.colorScheme.surface,
+                          prefixIcon: Icon(
+                            Icons.email_outlined,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: theme.dividerColor.withValues(alpha: 0.3),
+                            ),
                           ),
                         ),
                         validator: (value) {
@@ -125,14 +137,21 @@ class _LoginScreenState extends State<LoginScreen> {
                       TextFormField(
                         controller: _passwordController,
                         obscureText: _obscurePassword,
+                        style: TextStyle(color: theme.colorScheme.onSurface),
                         decoration: InputDecoration(
                           labelText: 'Password',
-                          prefixIcon: const Icon(Icons.lock_outline),
+                          filled: true,
+                          fillColor: theme.colorScheme.surface,
+                          prefixIcon: Icon(
+                            Icons.lock_outline,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscurePassword
                                   ? Icons.visibility
                                   : Icons.visibility_off,
+                              color: theme.colorScheme.onSurfaceVariant,
                             ),
                             onPressed: () => setState(
                               () => _obscurePassword = !_obscurePassword,
@@ -140,6 +159,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: theme.dividerColor.withValues(alpha: 0.3),
+                            ),
                           ),
                         ),
                         validator: (value) {

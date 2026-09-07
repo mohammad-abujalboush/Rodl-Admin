@@ -61,7 +61,8 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+      // FIX: Upgraded to Light Theme compliant properties
+      backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(32.0),
@@ -135,7 +136,7 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
             Text(
               'Track your total revenue, pending invoices, and driver payouts.',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
           ],
@@ -151,7 +152,10 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
                   horizontal: 20,
                   vertical: 16,
                 ),
-                side: BorderSide(color: theme.dividerColor),
+                side: BorderSide(
+                  color: theme.dividerColor.withValues(alpha: 0.5),
+                ),
+                foregroundColor: theme.colorScheme.onSurface,
               ),
             ),
             const SizedBox(width: 16),
@@ -176,28 +180,41 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
     return FutureBuilder<Map<String, dynamic>>(
       future: _kpiFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting)
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const SizedBox(
             height: 120,
             child: Center(child: CircularProgressIndicator()),
           );
-        if (snapshot.hasError)
-          return _buildErrorState('Failed to load KPIs', theme);
+        }
+        if (snapshot.hasError) {
+          return _buildErrorState(
+            'Failed to load KPIs. Adjust date range.',
+            theme,
+          );
+        }
 
         final data = snapshot.data ?? {};
-        final totalRevenue = data['totalRevenue'] ?? 0.0;
-        final activeTows = data['activeTows'] ?? 0;
-        final unassignedJobs = data['unassignedJobs'] ?? 0;
-        final slaBreaches = data['slaBreaches'] ?? 0;
+
+        // FIX: Safe numeric casting to prevent UI crashes if backend returns INT instead of DOUBLE
+        final totalRevenue = (data['totalRevenue'] as num?)?.toDouble() ?? 0.0;
+        final activeTows = (data['activeTows'] as num?)?.toInt() ?? 0;
+        final unassignedJobs = (data['unassignedJobs'] as num?)?.toInt() ?? 0;
+        final slaBreaches = (data['slaBreaches'] as num?)?.toInt() ?? 0;
 
         return LayoutBuilder(
           builder: (context, constraints) {
-            final double cardWidth = constraints.maxWidth > 800
-                ? (constraints.maxWidth / 4) - 24
-                : (constraints.maxWidth / 2) - 16;
+            // Refined math to prevent flex wrap overflows
+            int columns = constraints.maxWidth > 1200
+                ? 4
+                : (constraints.maxWidth > 800 ? 2 : 1);
+            double spacing = 24.0;
+            double cardWidth =
+                (constraints.maxWidth - (spacing * (columns - 1))) / columns -
+                0.1;
+
             return Wrap(
-              spacing: 24,
-              runSpacing: 24,
+              spacing: spacing,
+              runSpacing: spacing,
               children: [
                 SizedBox(
                   width: cardWidth,
@@ -265,7 +282,14 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
       decoration: BoxDecoration(
         color: theme.cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.dividerColor.withOpacity(0.5)),
+        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -277,7 +301,7 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
                 child: Text(
                   title,
                   style: theme.textTheme.titleSmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                     fontWeight: FontWeight.w600,
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -286,7 +310,7 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(icon, color: color, size: 20),
@@ -306,7 +330,7 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
             Text(
               subtitle,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
               ),
             ),
           ],
@@ -323,56 +347,71 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
       child: FutureBuilder<List<dynamic>>(
         future: _invoicesFuture,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting)
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const Padding(
               padding: EdgeInsets.all(32.0),
               child: Center(child: CircularProgressIndicator()),
             );
-          if (snapshot.hasError)
+          }
+          if (snapshot.hasError) {
             return _buildErrorState('Unable to load invoices', theme);
+          }
 
           final invoices = snapshot.data ?? [];
-          if (invoices.isEmpty)
+          if (invoices.isEmpty) {
             return _buildEmptyState(
               'No invoices found.',
               Icons.check_circle_outline,
               theme,
             );
+          }
 
           return ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: invoices.take(5).length,
             separatorBuilder: (_, __) =>
-                Divider(color: theme.dividerColor.withOpacity(0.5)),
+                Divider(color: theme.dividerColor.withValues(alpha: 0.3)),
             itemBuilder: (context, index) {
               final inv = invoices[index];
+              final rawDate = inv['issueDate']?.toString() ?? '';
+              final parsedDate = DateTime.tryParse(rawDate) ?? DateTime.now();
+              final amount = (inv['totalAmount'] as num?)?.toDouble() ?? 0.0;
+
               return ListTile(
                 contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
+                  horizontal: 24,
                   vertical: 8,
                 ),
                 title: Text(
                   inv['recipientName'] ?? 'Unknown',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface,
+                  ),
                 ),
                 subtitle: Text(
-                  'Issued: ${DateFormat('MMM dd, yyyy').format(DateTime.parse(inv['issueDate'] ?? DateTime.now().toIso8601String()))}',
+                  'Issued: ${DateFormat('MMM dd, yyyy').format(parsedDate)}',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
                 ),
                 trailing: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      NumberFormat.currency(
-                        symbol: '\$',
-                      ).format(inv['totalAmount'] ?? 0.0),
+                      NumberFormat.currency(symbol: '\$').format(amount),
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(height: 4),
-                    _buildInvoiceStatusChip(inv['status'] ?? 0, theme),
+                    _buildInvoiceStatusChip(
+                      (inv['status'] as num?)?.toInt() ?? 0,
+                      theme,
+                    ),
                   ],
                 ),
               );
@@ -391,51 +430,62 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
       child: FutureBuilder<List<dynamic>>(
         future: _payrollFuture,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting)
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const Padding(
               padding: EdgeInsets.all(32.0),
               child: Center(child: CircularProgressIndicator()),
             );
-          if (snapshot.hasError)
+          }
+          if (snapshot.hasError) {
             return _buildErrorState('Unable to load pending payroll', theme);
+          }
 
           final payouts = snapshot.data ?? [];
-          if (payouts.isEmpty)
+          if (payouts.isEmpty) {
             return _buildEmptyState(
               'All drivers are paid out.',
               Icons.domain_verification,
               theme,
             );
+          }
 
           return ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: payouts.take(5).length,
             separatorBuilder: (_, __) =>
-                Divider(color: theme.dividerColor.withOpacity(0.5)),
+                Divider(color: theme.dividerColor.withValues(alpha: 0.3)),
             itemBuilder: (context, index) {
               final payout = payouts[index];
+              final amount = (payout['netPayout'] as num?)?.toDouble() ?? 0.0;
+
               return ListTile(
                 contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
+                  horizontal: 24,
                   vertical: 8,
                 ),
                 leading: CircleAvatar(
-                  backgroundColor: theme.primaryColor.withOpacity(0.1),
+                  backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
                   child: Icon(Icons.person, color: theme.primaryColor),
                 ),
                 title: Text(
                   payout['driverName'] ?? 'Unknown',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface,
+                  ),
                 ),
-                subtitle: Text('${payout['unpaidJobCount'] ?? 0} Jobs Pending'),
+                subtitle: Text(
+                  '${payout['unpaidJobCount'] ?? 0} Jobs Pending',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
                 trailing: Text(
-                  NumberFormat.currency(
-                    symbol: '\$',
-                  ).format(payout['netPayout'] ?? 0.0),
+                  NumberFormat.currency(symbol: '\$').format(amount),
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: Colors.green.shade700,
+                    color: Colors.green.shade600,
                   ),
                 ),
               );
@@ -457,7 +507,14 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
       decoration: BoxDecoration(
         color: theme.cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.dividerColor.withOpacity(0.5)),
+        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -484,7 +541,7 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
               ],
             ),
           ),
-          const Divider(height: 1),
+          Divider(height: 1, color: theme.dividerColor.withValues(alpha: 0.3)),
           child,
         ],
       ),
@@ -494,27 +551,42 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
   Widget _buildInvoiceStatusChip(int status, ThemeData theme) {
     Color color;
     String label;
+
+    // FIX: Perfectly synced to the backend AppEnums.cs InvoiceStatus mapping
     switch (status) {
       case 0:
-        color = Colors.orange;
-        label = 'Pending';
+        color = Colors.grey;
+        label = 'Draft';
         break;
       case 1:
+        color = Colors.orange;
+        label = 'Unpaid';
+        break;
+      case 2:
+        color = Colors.blue;
+        label = 'Partial';
+        break;
+      case 3:
         color = Colors.green;
         label = 'Paid';
         break;
-      case 2:
+      case 4:
         color = Colors.red;
         label = 'Overdue';
         break;
+      case 5:
+        color = Colors.grey;
+        label = 'Voided';
+        break;
       default:
         color = theme.disabledColor;
-        label = 'Void';
+        label = 'Unknown';
     }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
@@ -539,7 +611,7 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
             Text(
               message,
               style: theme.textTheme.bodyLarge?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
               textAlign: TextAlign.center,
             ),
@@ -557,7 +629,13 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
           children: [
             Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
             const SizedBox(height: 16),
-            Text(error, style: TextStyle(color: theme.colorScheme.error)),
+            Text(
+              error,
+              style: TextStyle(
+                color: theme.colorScheme.error,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
       ),

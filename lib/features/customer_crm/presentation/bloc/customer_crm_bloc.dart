@@ -60,7 +60,6 @@ class AddCustomerVehicle extends CustomerCrmEvent {
   AddCustomerVehicle({required this.customerId, required this.vehicleData});
 }
 
-// NEW: Edit Customer Vehicle Event
 class EditCustomerVehicle extends CustomerCrmEvent {
   final String customerId;
   final String vehicleId;
@@ -221,7 +220,6 @@ class CustomerCrmBloc extends Bloc<CustomerCrmEvent, CustomerCrmState> {
       }
     });
 
-    // NEW: Handle Editing Existing Vehicles
     on<EditCustomerVehicle>((event, emit) async {
       try {
         await dioClient.dio.put(

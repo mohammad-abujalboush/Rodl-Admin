@@ -13,6 +13,8 @@ class PricingEngineScreen extends StatefulWidget {
 }
 
 class _PricingEngineScreenState extends State<PricingEngineScreen> {
+  String _searchQuery = '';
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -24,8 +26,12 @@ class _PricingEngineScreenState extends State<PricingEngineScreen> {
         floatingActionButton: Builder(
           builder: (blocContext) => FloatingActionButton.extended(
             icon: const Icon(Icons.add),
-            label: const Text('Add Pricing Rule'),
+            label: const Text(
+              'Add Pricing Rule',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             backgroundColor: theme.primaryColor,
+            foregroundColor: theme.colorScheme.onPrimary,
             onPressed: () => _showPricingWizard(blocContext, null),
           ),
         ),
@@ -36,7 +42,28 @@ class _PricingEngineScreenState extends State<PricingEngineScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildHeader(theme),
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: 380,
+                  child: TextField(
+                    style: TextStyle(color: theme.colorScheme.onSurface),
+                    decoration: InputDecoration(
+                      hintText: 'Search by service name or category...',
+                      prefixIcon: const Icon(Icons.search),
+                      filled: true,
+                      fillColor: theme.cardColor,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: theme.dividerColor.withValues(alpha: 0.3),
+                        ),
+                      ),
+                    ),
+                    onChanged: (val) =>
+                        setState(() => _searchQuery = val.toLowerCase()),
+                  ),
+                ),
+                const SizedBox(height: 24),
                 Expanded(
                   child: BlocConsumer<PricingEngineBloc, PricingEngineState>(
                     listener: (context, state) {
@@ -44,7 +71,7 @@ class _PricingEngineScreenState extends State<PricingEngineScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(state.message),
-                            backgroundColor: Colors.green,
+                            backgroundColor: Colors.green.shade700,
                           ),
                         );
                       } else if (state is PricingError) {
@@ -59,16 +86,35 @@ class _PricingEngineScreenState extends State<PricingEngineScreen> {
                     buildWhen: (prev, current) =>
                         current is PricingLoaded || current is PricingLoading,
                     builder: (context, state) {
-                      if (state is PricingLoading)
+                      if (state is PricingLoading) {
                         return const Center(child: CircularProgressIndicator());
+                      }
                       if (state is PricingLoaded) {
-                        if (state.rules.isEmpty)
-                          return const Center(
+                        final filteredRules = state.rules.where((r) {
+                          return r.ruleName.toLowerCase().contains(
+                                _searchQuery,
+                              ) ||
+                              r.serviceTypeName.toLowerCase().contains(
+                                _searchQuery,
+                              ) ||
+                              r.description.toLowerCase().contains(
+                                _searchQuery,
+                              );
+                        }).toList();
+
+                        if (filteredRules.isEmpty) {
+                          return Center(
                             child: Text(
-                              'No pricing rules defined.',
-                              style: TextStyle(color: Colors.grey),
+                              'No pricing rules match your search.',
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.5,
+                                ),
+                                fontSize: 16,
+                              ),
                             ),
                           );
+                        }
 
                         return GridView.builder(
                           gridDelegate:
@@ -83,9 +129,9 @@ class _PricingEngineScreenState extends State<PricingEngineScreen> {
                                 mainAxisSpacing: 24,
                                 childAspectRatio: 1.8,
                               ),
-                          itemCount: state.rules.length,
+                          itemCount: filteredRules.length,
                           itemBuilder: (ctx, i) =>
-                              _buildRuleCard(state.rules[i], theme, ctx),
+                              _buildRuleCard(filteredRules[i], theme, ctx),
                         );
                       }
                       return const SizedBox.shrink();
@@ -105,16 +151,19 @@ class _PricingEngineScreenState extends State<PricingEngineScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Pricing Rules',
+          'Pricing Engine & Rate Cards',
           style: theme.textTheme.headlineMedium?.copyWith(
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: theme.colorScheme.onSurface,
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          'Manage starting prices, per-kilometer fees, and extra charges.',
-          style: TextStyle(color: theme.disabledColor),
+          'Configure base hookup rates, distance brackets, wait penalties, and multi-truck surcharges.',
+          style: TextStyle(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+            fontSize: 16,
+          ),
         ),
       ],
     );
@@ -126,10 +175,10 @@ class _PricingEngineScreenState extends State<PricingEngineScreen> {
     BuildContext blocContext,
   ) {
     return Card(
-      elevation: 4,
+      elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.5)),
+        side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.3)),
       ),
       color: theme.cardColor,
       child: Padding(
@@ -143,10 +192,10 @@ class _PricingEngineScreenState extends State<PricingEngineScreen> {
                 Expanded(
                   child: Text(
                     rule.ruleName,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
-                      color: Colors.white,
+                      color: theme.colorScheme.onSurface,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -162,6 +211,7 @@ class _PricingEngineScreenState extends State<PricingEngineScreen> {
                     ),
                   ),
                   backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
+                  side: BorderSide.none,
                   padding: EdgeInsets.zero,
                   visualDensity: VisualDensity.compact,
                 ),
@@ -169,27 +219,40 @@ class _PricingEngineScreenState extends State<PricingEngineScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              rule.description,
-              style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+              rule.description.isEmpty
+                  ? 'No description provided.'
+                  : rule.description,
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                fontSize: 12,
+              ),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
             const Spacer(),
-            const Divider(),
+            Divider(
+              height: 20,
+              color: theme.dividerColor.withValues(alpha: 0.3),
+            ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Base Price',
-                      style: TextStyle(color: Colors.grey, fontSize: 11),
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.5,
+                        ),
+                        fontSize: 11,
+                      ),
                     ),
                     Text(
                       '\$${rule.baseFare.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        color: Colors.green,
+                      style: TextStyle(
+                        color: Colors.green.shade600,
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
                       ),
@@ -199,14 +262,19 @@ class _PricingEngineScreenState extends State<PricingEngineScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Distance Rate',
-                      style: TextStyle(color: Colors.grey, fontSize: 11),
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.5,
+                        ),
+                        fontSize: 11,
+                      ),
                     ),
                     Text(
                       '\$${rule.ratePerKm.toStringAsFixed(2)} /km',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
                       ),
@@ -215,7 +283,7 @@ class _PricingEngineScreenState extends State<PricingEngineScreen> {
                 ),
                 FilledButton.tonal(
                   onPressed: () => _showPricingWizard(blocContext, rule),
-                  child: const Text('Edit Prices'),
+                  child: const Text('Edit Rates'),
                 ),
               ],
             ),
@@ -288,6 +356,27 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
   final _duallyCtrl = TextEditingController();
   final _multiTruckCtrl = TextEditingController();
 
+  // The 17 backend service types mapping
+  final Map<int, String> _allServiceTypes = const {
+    1: 'Wheel Lift Towing',
+    2: 'Flatbed Carrier',
+    3: 'Underground / Specialty Tow',
+    4: 'Heavy Duty Commercial Tow',
+    5: 'Motorcycle Towing',
+    6: 'Battery Jump Start',
+    7: 'Flat Tire Service',
+    8: 'Lockout Service',
+    9: 'Fuel / Fluid Delivery',
+    10: 'Winching / Off-Road Recovery',
+    11: 'Dollies / Locked Wheels Towing',
+    12: 'EV Mobile Charging',
+    13: 'Accident Scene Clearance',
+    14: 'Tire Inflation / Air Only',
+    15: 'Electric Vehicle Flatbed Only',
+    16: 'Exotic Luxury Enclosed Tow',
+    17: 'Secondary Highway Escort (Safety Unit)',
+  };
+
   @override
   void initState() {
     super.initState();
@@ -297,7 +386,7 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
       final r = widget.existingRule!;
       _nameCtrl.text = r.ruleName;
       _descCtrl.text = r.description;
-      _serviceType = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].contains(r.serviceType)
+      _serviceType = _allServiceTypes.containsKey(r.serviceType)
           ? r.serviceType
           : 1;
 
@@ -316,12 +405,37 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
       _holidayCtrl.text = r.holidaySurcharge?.toString() ?? '';
       _duallyCtrl.text = r.duallySurcharge?.toString() ?? '';
       _multiTruckCtrl.text = r.multiTruckSurcharge?.toString() ?? '';
+    } else {
+      _baseFareCtrl.text = '75.00';
+      _incDistCtrl.text = '5.0';
+      _rateKmCtrl.text = '3.50';
+      _recBaseCtrl.text = '50.00';
+      _recIncMinCtrl.text = '15';
+      _recRateMinCtrl.text = '2.00';
+      _waitFreeMinCtrl.text = '10';
+      _waitRateMinCtrl.text = '1.50';
+      _cancelFeeCtrl.text = '50.00';
     }
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _nameCtrl.dispose();
+    _descCtrl.dispose();
+    _baseFareCtrl.dispose();
+    _incDistCtrl.dispose();
+    _rateKmCtrl.dispose();
+    _recBaseCtrl.dispose();
+    _recIncMinCtrl.dispose();
+    _recRateMinCtrl.dispose();
+    _waitFreeMinCtrl.dispose();
+    _waitRateMinCtrl.dispose();
+    _cancelFeeCtrl.dispose();
+    _afterHoursCtrl.dispose();
+    _holidayCtrl.dispose();
+    _duallyCtrl.dispose();
+    _multiTruckCtrl.dispose();
     super.dispose();
   }
 
@@ -329,9 +443,8 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    // Use BoxConstraints to ensure it scales down nicely on mobile screens
     return Container(
-      constraints: const BoxConstraints(maxWidth: 900, maxHeight: 750),
+      constraints: const BoxConstraints(maxWidth: 900, maxHeight: 800),
       padding: const EdgeInsets.all(32),
       child: Form(
         key: _formKey,
@@ -341,17 +454,20 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  widget.isNew
-                      ? 'Add New Pricing Rule'
-                      : 'Edit Pricing: ${_nameCtrl.text}',
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    widget.isNew
+                        ? 'Add New Pricing Rule'
+                        : 'Edit Pricing: ${_nameCtrl.text}',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      color: theme.colorScheme.onSurface,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close),
+                  icon: Icon(Icons.close, color: theme.colorScheme.onSurface),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -363,100 +479,40 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
                   flex: 2,
                   child: TextFormField(
                     controller: _nameCtrl,
+                    style: TextStyle(color: theme.colorScheme.onSurface),
                     decoration: InputDecoration(
                       labelText: 'Pricing Rule Name *',
                       filled: true,
                       fillColor: theme.cardColor,
                       border: const OutlineInputBorder(),
                     ),
-                    style: const TextStyle(color: Colors.white),
-                    validator: (v) => v!.isEmpty ? 'Required' : null,
+                    validator: (v) =>
+                        (v == null || v.isEmpty) ? 'Required' : null,
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  flex: 1,
+                  flex: 2,
                   child: DropdownButtonFormField<int>(
                     value: _serviceType,
                     dropdownColor: theme.cardColor,
+                    style: TextStyle(color: theme.colorScheme.onSurface),
                     decoration: InputDecoration(
-                      labelText: 'Target Service Type',
+                      labelText: 'Target Service Type *',
                       filled: true,
                       fillColor: theme.cardColor,
                       border: const OutlineInputBorder(),
                     ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 1,
+                    items: _allServiceTypes.entries.map((entry) {
+                      return DropdownMenuItem<int>(
+                        value: entry.key,
                         child: Text(
-                          'Wheel Lift Towing',
-                          style: TextStyle(color: Colors.white),
+                          entry.value,
+                          style: TextStyle(color: theme.colorScheme.onSurface),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      DropdownMenuItem(
-                        value: 2,
-                        child: Text(
-                          'Flatbed Carrier',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                      DropdownMenuItem(
-                        value: 3,
-                        child: Text(
-                          'Underground / Low Clearance',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                      DropdownMenuItem(
-                        value: 4,
-                        child: Text(
-                          'Heavy Duty / Commercial Tow',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                      DropdownMenuItem(
-                        value: 5,
-                        child: Text(
-                          'Motorcycle Towing',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                      DropdownMenuItem(
-                        value: 6,
-                        child: Text(
-                          'Battery Jump Start',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                      DropdownMenuItem(
-                        value: 7,
-                        child: Text(
-                          'Flat Tire Service',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                      DropdownMenuItem(
-                        value: 8,
-                        child: Text(
-                          'Vehicle Lockout Service',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                      DropdownMenuItem(
-                        value: 9,
-                        child: Text(
-                          'Fuel / Fluid Delivery',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                      DropdownMenuItem(
-                        value: 10,
-                        child: Text(
-                          'Winching / Off-Road Recovery',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ],
+                      );
+                    }).toList(),
                     onChanged: widget.isNew
                         ? (v) => setState(() => _serviceType = v!)
                         : null,
@@ -467,24 +523,24 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
             const SizedBox(height: 16),
             TextFormField(
               controller: _descCtrl,
+              style: TextStyle(color: theme.colorScheme.onSurface),
               decoration: InputDecoration(
-                labelText: 'Notes',
+                labelText: 'Description / Operational Notes',
                 filled: true,
                 fillColor: theme.cardColor,
                 border: const OutlineInputBorder(),
               ),
-              style: const TextStyle(color: Colors.white),
             ),
             const SizedBox(height: 24),
             TabBar(
               controller: _tabController,
               labelColor: theme.primaryColor,
-              unselectedLabelColor: Colors.grey,
+              unselectedLabelColor: theme.disabledColor,
               indicatorColor: theme.primaryColor,
               tabs: const [
-                Tab(text: 'Standard Fees'),
-                Tab(text: 'Wait Fees'),
-                Tab(text: 'Extra Fees'),
+                Tab(text: 'Standard Rates'),
+                Tab(text: 'Recovery & Waiting'),
+                Tab(text: 'Addons & Surcharges'),
               ],
             ),
             const SizedBox(height: 24),
@@ -498,7 +554,10 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
                 ],
               ),
             ),
-            const Divider(height: 32),
+            Divider(
+              height: 32,
+              color: theme.dividerColor.withValues(alpha: 0.3),
+            ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -530,7 +589,16 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
                     const SizedBox(width: 16),
                     FilledButton.icon(
                       icon: const Icon(Icons.save),
-                      label: const Text('Save Pricing Rule'),
+                      label: const Text(
+                        'Save Pricing Rule',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 16,
+                        ),
+                      ),
                       onPressed: _saveRule,
                     ),
                   ],
@@ -547,25 +615,25 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
     return ListView(
       children: [
         _buildCurrencyInput(
-          'Starting Base Price (\$)',
+          'Base Hookup Fee (\$)',
           _baseFareCtrl,
           theme,
           isRequired: true,
         ),
         _buildNumericInput(
-          'Free Kilometers Included',
+          'Distance Included Free (km)',
           _incDistCtrl,
           theme,
           isRequired: true,
         ),
         _buildCurrencyInput(
-          'Per-Kilometer Extra Fee (\$)',
+          'Rate per Excess Kilometer (\$ / km)',
           _rateKmCtrl,
           theme,
           isRequired: true,
         ),
         _buildCurrencyInput(
-          'Cancellation Fee (\$)',
+          'Cancellation Penalty Fee (\$)',
           _cancelFeeCtrl,
           theme,
           isRequired: true,
@@ -578,32 +646,32 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
     return ListView(
       children: [
         _buildCurrencyInput(
-          'Winching Base Fee (\$)',
+          'Off-Road Winching Base Fee (\$)',
           _recBaseCtrl,
           theme,
           isRequired: true,
         ),
         _buildNumericInput(
-          'Free Winching Time (Minutes)',
+          'Included Winching Time (Minutes)',
           _recIncMinCtrl,
           theme,
           isRequired: true,
         ),
         _buildCurrencyInput(
-          'Extra Winching Time Fee (\$ / Min)',
+          'Excess Winching Fee (\$ / Minute)',
           _recRateMinCtrl,
           theme,
           isRequired: true,
         ),
-        const Divider(height: 32),
+        Divider(height: 32, color: theme.dividerColor.withValues(alpha: 0.3)),
         _buildNumericInput(
-          'Free Waiting Time for Driver (Minutes)',
+          'Free Driver Waiting Window (Minutes)',
           _waitFreeMinCtrl,
           theme,
           isRequired: true,
         ),
         _buildCurrencyInput(
-          'Driver Waiting Fee (\$ / Min)',
+          'Driver Wait Penalty (\$ / Minute)',
           _waitRateMinCtrl,
           theme,
           isRequired: true,
@@ -616,25 +684,25 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
     return ListView(
       children: [
         _buildCurrencyInput(
-          'Night / After-Hours Extra Fee (\$)',
+          'Night / After-Hours Surcharge (\$)',
           _afterHoursCtrl,
           theme,
           isRequired: false,
         ),
         _buildCurrencyInput(
-          'Holiday Extra Fee (\$)',
+          'Statutory Holiday Surcharge (\$)',
           _holidayCtrl,
           theme,
           isRequired: false,
         ),
         _buildCurrencyInput(
-          'Heavy Vehicle Extra Fee (\$)',
+          'Dually / Heavy-Duty Wheelbase Surcharge (\$)',
           _duallyCtrl,
           theme,
           isRequired: false,
         ),
         _buildCurrencyInput(
-          'Multiple Trucks Extra Fee (\$)',
+          'Dual-Dispatch / Multi-Truck Surcharge (\$)',
           _multiTruckCtrl,
           theme,
           isRequired: false,
@@ -653,18 +721,23 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
       padding: const EdgeInsets.only(bottom: 16.0),
       child: TextFormField(
         controller: ctrl,
+        style: TextStyle(color: theme.colorScheme.onSurface),
         decoration: InputDecoration(
           labelText: label,
-          prefixIcon: const Icon(Icons.attach_money, size: 16),
+          prefixIcon: const Icon(Icons.attach_money, size: 18),
           filled: true,
-          fillColor: theme.colorScheme.surfaceContainerHighest.withValues(
-            alpha: 0.3,
+          fillColor: theme.cardColor,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(
+              color: theme.dividerColor.withValues(alpha: 0.3),
+            ),
           ),
-          border: const OutlineInputBorder(),
         ),
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        style: const TextStyle(color: Colors.white),
-        validator: isRequired ? (v) => v!.isEmpty ? 'Required' : null : null,
+        validator: isRequired
+            ? (v) => (v == null || v.isEmpty) ? 'Required' : null
+            : null,
       ),
     );
   }
@@ -679,17 +752,22 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
       padding: const EdgeInsets.only(bottom: 16.0),
       child: TextFormField(
         controller: ctrl,
+        style: TextStyle(color: theme.colorScheme.onSurface),
         decoration: InputDecoration(
           labelText: label,
           filled: true,
-          fillColor: theme.colorScheme.surfaceContainerHighest.withValues(
-            alpha: 0.3,
+          fillColor: theme.cardColor,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(
+              color: theme.dividerColor.withValues(alpha: 0.3),
+            ),
           ),
-          border: const OutlineInputBorder(),
         ),
         keyboardType: TextInputType.number,
-        style: const TextStyle(color: Colors.white),
-        validator: isRequired ? (v) => v!.isEmpty ? 'Required' : null : null,
+        validator: isRequired
+            ? (v) => (v == null || v.isEmpty) ? 'Required' : null
+            : null,
       ),
     );
   }
@@ -698,23 +776,25 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
     if (_formKey.currentState!.validate()) {
       final rule = PricingRuleModel(
         id: widget.existingRule?.id ?? '',
-        ruleName: _nameCtrl.text,
-        description: _descCtrl.text,
+        ruleName: _nameCtrl.text.trim(),
+        description: _descCtrl.text.trim(),
         serviceType: _serviceType,
-        baseFare: double.parse(_baseFareCtrl.text),
-        includedDistanceKm: double.parse(_incDistCtrl.text),
-        ratePerKm: double.parse(_rateKmCtrl.text),
-        hourlyRate: 0,
-        recoveryBaseRate: double.parse(_recBaseCtrl.text),
-        recoveryIncludedMinutes: int.parse(_recIncMinCtrl.text),
-        recoveryRatePerMinute: double.parse(_recRateMinCtrl.text),
-        freeWaitingTimeMinutes: int.parse(_waitFreeMinCtrl.text),
-        waitingRatePerMinute: double.parse(_waitRateMinCtrl.text),
-        cancellationFee: double.parse(_cancelFeeCtrl.text),
-        afterHoursSurcharge: double.tryParse(_afterHoursCtrl.text),
-        holidaySurcharge: double.tryParse(_holidayCtrl.text),
-        duallySurcharge: double.tryParse(_duallyCtrl.text),
-        multiTruckSurcharge: double.tryParse(_multiTruckCtrl.text),
+        baseFare: double.tryParse(_baseFareCtrl.text.trim()) ?? 0.0,
+        includedDistanceKm: double.tryParse(_incDistCtrl.text.trim()) ?? 0.0,
+        ratePerKm: double.tryParse(_rateKmCtrl.text.trim()) ?? 0.0,
+        hourlyRate: 0.0,
+        recoveryBaseRate: double.tryParse(_recBaseCtrl.text.trim()) ?? 0.0,
+        recoveryIncludedMinutes: int.tryParse(_recIncMinCtrl.text.trim()) ?? 0,
+        recoveryRatePerMinute:
+            double.tryParse(_recRateMinCtrl.text.trim()) ?? 0.0,
+        freeWaitingTimeMinutes: int.tryParse(_waitFreeMinCtrl.text.trim()) ?? 0,
+        waitingRatePerMinute:
+            double.tryParse(_waitRateMinCtrl.text.trim()) ?? 0.0,
+        cancellationFee: double.tryParse(_cancelFeeCtrl.text.trim()) ?? 0.0,
+        afterHoursSurcharge: double.tryParse(_afterHoursCtrl.text.trim()),
+        holidaySurcharge: double.tryParse(_holidayCtrl.text.trim()),
+        duallySurcharge: double.tryParse(_duallyCtrl.text.trim()),
+        multiTruckSurcharge: double.tryParse(_multiTruckCtrl.text.trim()),
         isActive: true,
       );
       widget.bloc.add(SavePricingRule(rule: rule, isNew: widget.isNew));

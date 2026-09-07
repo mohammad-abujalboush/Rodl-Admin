@@ -13,6 +13,7 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
   final AdminRepository _repo = sl<AdminRepository>();
   List<dynamic> _promos = [];
   bool _isLoading = true;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -22,109 +23,321 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
 
   Future<void> _loadPromos() async {
     setState(() => _isLoading = true);
-    _promos = await _repo.getPromotions();
-    setState(() => _isLoading = false);
+    try {
+      _promos = await _repo.getPromotions();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Failed to load promotions from server.'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   void _showAddPromoDialog() {
+    final theme = Theme.of(context);
     final codeCtrl = TextEditingController();
     final valueCtrl = TextEditingController();
     int type = 0; // 0 = Percentage, 1 = Flat
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Add Discount Code'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: codeCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Code (e.g., SUMMER20)',
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return AlertDialog(
+            backgroundColor: theme.cardColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: Text(
+              'Add Discount Code',
+              style: TextStyle(
+                color: theme.colorScheme.onSurface,
+                fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<int>(
-              value: type,
-              decoration: const InputDecoration(labelText: 'Discount Type'),
-              items: const [
-                DropdownMenuItem(value: 0, child: Text('Percentage (%)')),
-                DropdownMenuItem(value: 1, child: Text('Flat Amount (\$)')),
-              ],
-              onChanged: (v) => type = v!,
+            content: Container(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: codeCtrl,
+                    style: TextStyle(color: theme.colorScheme.onSurface),
+                    decoration: InputDecoration(
+                      labelText: 'Code (e.g., SUMMER20) *',
+                      filled: true,
+                      fillColor: theme.scaffoldBackgroundColor,
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<int>(
+                    value: type,
+                    dropdownColor: theme.cardColor,
+                    style: TextStyle(color: theme.colorScheme.onSurface),
+                    decoration: InputDecoration(
+                      labelText: 'Discount Type *',
+                      filled: true,
+                      fillColor: theme.scaffoldBackgroundColor,
+                      border: const OutlineInputBorder(),
+                    ),
+                    items: [
+                      DropdownMenuItem(
+                        value: 0,
+                        child: Text(
+                          'Percentage (%)',
+                          style: TextStyle(color: theme.colorScheme.onSurface),
+                        ),
+                      ),
+                      DropdownMenuItem(
+                        value: 1,
+                        child: Text(
+                          'Flat Amount (\$)',
+                          style: TextStyle(color: theme.colorScheme.onSurface),
+                        ),
+                      ),
+                    ],
+                    onChanged: (v) => setModalState(() => type = v!),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: valueCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    style: TextStyle(color: theme.colorScheme.onSurface),
+                    decoration: InputDecoration(
+                      labelText: 'Discount Value *',
+                      filled: true,
+                      fillColor: theme.scaffoldBackgroundColor,
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: valueCtrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Discount Value'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              if (codeCtrl.text.isNotEmpty && valueCtrl.text.isNotEmpty) {
-                await _repo.createPromotion({
-                  'code': codeCtrl.text,
-                  'discountType': type,
-                  'discountValue': double.tryParse(valueCtrl.text) ?? 0,
-                });
-                Navigator.pop(ctx);
-                _loadPromos();
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: _isSaving
+                    ? null
+                    : () async {
+                        if (codeCtrl.text.isNotEmpty &&
+                            valueCtrl.text.isNotEmpty) {
+                          setModalState(() => _isSaving = true);
+                          try {
+                            await _repo.createPromotion({
+                              'code': codeCtrl.text.toUpperCase().trim(),
+                              'discountType': type,
+                              'discountValue':
+                                  double.tryParse(valueCtrl.text.trim()) ?? 0.0,
+                            });
+                            if (mounted) Navigator.pop(ctx);
+                            _loadPromos();
+                          } catch (e) {
+                            setModalState(() => _isSaving = false);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text(
+                                    'Failed to publish promotion.',
+                                  ),
+                                  backgroundColor: theme.colorScheme.error,
+                                ),
+                              );
+                            }
+                          }
+                        }
+                      },
+                child: _isSaving
+                    ? const SizedBox(
+                        height: 16,
+                        width: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Publish Promotion',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Promotions & Discounts')),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddPromoDialog,
-        icon: const Icon(Icons.add),
-        label: const Text('Add Promo Code'),
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(theme),
+              const SizedBox(height: 32),
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _promos.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No promotional discount codes found.',
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.5,
+                            ),
+                          ),
+                        ),
+                      )
+                    : Card(
+                        elevation: 0,
+                        color: theme.cardColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(
+                            color: theme.dividerColor.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: ListView.separated(
+                          itemCount: _promos.length,
+                          separatorBuilder: (_, __) => Divider(
+                            height: 1,
+                            color: theme.dividerColor.withValues(alpha: 0.3),
+                          ),
+                          itemBuilder: (ctx, i) {
+                            final p = _promos[i];
+                            return ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 12,
+                              ),
+                              leading: CircleAvatar(
+                                backgroundColor: Colors.green.withValues(
+                                  alpha: 0.1,
+                                ),
+                                child: const Icon(
+                                  Icons.local_offer,
+                                  color: Colors.green,
+                                ),
+                              ),
+                              title: Text(
+                                p['code'],
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.colorScheme.onSurface,
+                                ),
+                              ),
+                              subtitle: Text(
+                                p['discountType'] == 0
+                                    ? '${p['discountValue']}% Off Total Fare'
+                                    : '\$${p['discountValue']} Flat Rate Off',
+                                style: TextStyle(
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.6,
+                                  ),
+                                ),
+                              ),
+                              trailing: IconButton(
+                                icon: const Icon(
+                                  Icons.delete_forever,
+                                  color: Colors.redAccent,
+                                ),
+                                tooltip: 'Delete Promotion',
+                                onPressed: () async {
+                                  try {
+                                    await _repo.deletePromotion(p['id']);
+                                    _loadPromos();
+                                  } catch (e) {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: const Text(
+                                            'Failed to delete promotion.',
+                                          ),
+                                          backgroundColor:
+                                              theme.colorScheme.error,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+              ),
+            ],
+          ),
+        ),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
-              padding: const EdgeInsets.all(32),
-              itemCount: _promos.length,
-              itemBuilder: (ctx, i) {
-                final p = _promos[i];
-                return Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.local_offer, color: Colors.green),
-                    title: Text(
-                      p['code'],
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Text(
-                      p['discountType'] == 0
-                          ? '${p['discountValue']}% Off'
-                          : '\$${p['discountValue']} Off',
-                    ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () async {
-                        await _repo.deletePromotion(p['id']);
-                        _loadPromos();
-                      },
-                    ),
-                  ),
-                );
-              },
+    );
+  }
+
+  Widget _buildHeader(ThemeData theme) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Promotions & Discounts',
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Manage active discount vouchers and flat-rate promos for customers.',
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+        ),
+        FilledButton.icon(
+          onPressed: _showAddPromoDialog,
+          icon: const Icon(Icons.add),
+          label: const Text(
+            'Add Promo Code',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
+          ),
+        ),
+      ],
     );
   }
 }

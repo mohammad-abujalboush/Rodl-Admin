@@ -30,7 +30,7 @@ class UpdateTicketNote extends HelpdeskEvent {
 class CreateManualTicket extends HelpdeskEvent {
   final String subject;
   final String description;
-  final String? customerId; // NEW
+  final String? customerId;
   final String customerName;
   final int priority;
 
@@ -41,6 +41,7 @@ class CreateManualTicket extends HelpdeskEvent {
     required this.customerName,
     required this.priority,
   });
+
   @override
   List<Object?> get props => [
     subject,
@@ -109,7 +110,7 @@ class HelpdeskBloc extends Bloc<HelpdeskEvent, HelpdeskState> {
           data: {'status': event.newStatus},
         );
         if (response.statusCode == 200) {
-          emit(HelpdeskActionSuccess('Status updated.'));
+          emit(HelpdeskActionSuccess('Ticket status updated.'));
           add(FetchTickets());
         }
       } catch (e) {
@@ -139,7 +140,7 @@ class HelpdeskBloc extends Bloc<HelpdeskEvent, HelpdeskState> {
           data: {
             'subject': event.subject,
             'description': event.description,
-            'customerId': event.customerId, // Pass to backend to link to CRM
+            'customerId': event.customerId,
             'customerName': event.customerName,
             'priority': event.priority,
           },
@@ -154,7 +155,6 @@ class HelpdeskBloc extends Bloc<HelpdeskEvent, HelpdeskState> {
     });
   }
 
-  // --- CRM DYNAMIC SEARCH HELPER ---
   Future<List<Map<String, dynamic>>> searchCustomers(String query) async {
     try {
       final res = await dioClient.dio.get(

@@ -68,10 +68,17 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           emit(DashboardError('Failed to load dashboard data.'));
         }
       } on DioException catch (e) {
-        // Handle specific network or API errors cleanly
         String errorMessage = 'Network error while fetching metrics.';
         if (e.response != null && e.response?.statusCode != 500) {
-          errorMessage = e.response?.data['message'] ?? errorMessage;
+          // Safeguard against malformed error responses
+          if (e.response?.data is Map && e.response?.data['message'] != null) {
+            errorMessage = e.response?.data['message'];
+          } else {
+            errorMessage = 'Data retrieval failed (${e.response?.statusCode}).';
+          }
+        } else if (e.response?.statusCode == 500) {
+          errorMessage =
+              'System calculation error. Please refine your filter dates.';
         }
         emit(DashboardError(errorMessage));
       } catch (e) {

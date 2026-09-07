@@ -18,9 +18,10 @@ class _LiveRadarScreenState extends State<LiveRadarScreen> {
   GoogleMapController? _mapController;
 
   static bool _showDrivers = true;
+  static bool _showOfflineDrivers = false; // NEW TOGGLE
   static bool _showActiveJobs = true;
   static bool _showHistoricalHeatmap = false;
-  static bool _showDriverHeatmap = false; // NEW TOGGLE
+  static bool _showDriverHeatmap = false;
 
   static const CameraPosition _initialPosition = CameraPosition(
     target: LatLng(31.9454, 35.9284),
@@ -68,19 +69,33 @@ class _LiveRadarScreenState extends State<LiveRadarScreen> {
                           Set<Marker> displayMarkers = {};
                           Set<Circle> displayCircles = {};
 
-                          if (_showDrivers)
-                            displayMarkers.addAll(state.driverMarkers.values);
-                          if (_showActiveJobs)
+                          // Add Online Drivers
+                          if (_showDrivers) {
+                            displayMarkers.addAll(
+                              state.onlineDriverMarkers.values,
+                            );
+                          }
+                          // Add Offline Drivers
+                          if (_showOfflineDrivers) {
+                            displayMarkers.addAll(
+                              state.offlineDriverMarkers.values,
+                            );
+                          }
+                          // Add Jobs
+                          if (_showActiveJobs) {
                             displayMarkers.addAll(state.jobMarkers.values);
+                          }
 
-                          if (_showHistoricalHeatmap)
+                          if (_showHistoricalHeatmap) {
                             displayCircles.addAll(
                               state.historicalCircles.values,
                             );
-                          if (_showDriverHeatmap)
+                          }
+                          if (_showDriverHeatmap) {
                             displayCircles.addAll(
                               state.driverHeatmapCircles.values,
                             );
+                          }
 
                           return GoogleMap(
                             initialCameraPosition: _initialPosition,
@@ -95,7 +110,6 @@ class _LiveRadarScreenState extends State<LiveRadarScreen> {
                             circles: displayCircles,
                             onMapCreated: (controller) =>
                                 _mapController = controller,
-                            // Dismiss overlays when tapping empty space
                             onTap: (_) {
                               context.read<LiveRadarBloc>().add(
                                 SelectJobIndicator(null),
@@ -117,7 +131,7 @@ class _LiveRadarScreenState extends State<LiveRadarScreen> {
                           child: BackdropFilter(
                             filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                             child: Container(
-                              color: theme.cardColor.withOpacity(0.8),
+                              color: theme.colorScheme.surface.withOpacity(0.8),
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
                                 vertical: 4,
@@ -249,9 +263,9 @@ class _LiveRadarScreenState extends State<LiveRadarScreen> {
                       child: Container(
                         width: 380,
                         decoration: BoxDecoration(
-                          color: theme.scaffoldBackgroundColor.withOpacity(
-                            0.85,
-                          ),
+                          color: theme.colorScheme.surface.withOpacity(
+                            0.95,
+                          ), // Fixed Light Mode contrast
                           border: Border(
                             left: BorderSide(
                               color: theme.dividerColor.withOpacity(0.5),
@@ -259,7 +273,7 @@ class _LiveRadarScreenState extends State<LiveRadarScreen> {
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
+                              color: Colors.black.withOpacity(0.1),
                               blurRadius: 20,
                               offset: const Offset(-5, 0),
                             ),
@@ -281,7 +295,9 @@ class _LiveRadarScreenState extends State<LiveRadarScreen> {
     if (_mapController == null) return;
     List<LatLng> points = [];
     if (_showDrivers)
-      points.addAll(state.driverMarkers.values.map((m) => m.position));
+      points.addAll(state.onlineDriverMarkers.values.map((m) => m.position));
+    if (_showOfflineDrivers)
+      points.addAll(state.offlineDriverMarkers.values.map((m) => m.position));
     if (_showActiveJobs)
       points.addAll(state.jobMarkers.values.map((m) => m.position));
     if (points.isEmpty) return;
@@ -337,6 +353,7 @@ class _LiveRadarScreenState extends State<LiveRadarScreen> {
                     style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                       letterSpacing: 0.5,
+                      color: theme.colorScheme.onSurface,
                     ),
                   ),
                 ],
@@ -352,16 +369,25 @@ class _LiveRadarScreenState extends State<LiveRadarScreen> {
                       fontWeight: FontWeight.w800,
                       fontSize: 12,
                       letterSpacing: 1.2,
-                      color: theme.disabledColor,
+                      color: theme.colorScheme.onSurface.withOpacity(0.5),
                     ),
                   ),
                   const SizedBox(height: 24),
                   _buildAnimatedToggle(
-                    'Live Fleet (Drivers)',
+                    'Live Fleet (Online)',
                     _showDrivers,
                     Colors.blue,
                     Icons.local_shipping,
                     (v) => setState(() => _showDrivers = v),
+                    theme,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildAnimatedToggle(
+                    'Offline Drivers (Last Known)',
+                    _showOfflineDrivers,
+                    Colors.grey,
+                    Icons.location_disabled,
+                    (v) => setState(() => _showOfflineDrivers = v),
                     theme,
                   ),
                   const SizedBox(height: 16),
@@ -402,16 +428,17 @@ class _LiveRadarScreenState extends State<LiveRadarScreen> {
                       fontWeight: FontWeight.w800,
                       fontSize: 12,
                       letterSpacing: 1.2,
-                      color: theme.disabledColor,
+                      color: theme.colorScheme.onSurface.withOpacity(0.5),
                     ),
                   ),
                   const SizedBox(height: 24),
                   if (state.isLoading)
                     const Center(child: CircularProgressIndicator())
                   else ...[
+                    // FIX: Real dynamic calculation of the online fleet!
                     _buildAnimatedStat(
                       'Total Fleet Online',
-                      state.driverMarkers.length,
+                      state.onlineDriverMarkers.length,
                       theme,
                     ),
                     const SizedBox(height: 16),
@@ -463,7 +490,9 @@ class _LiveRadarScreenState extends State<LiveRadarScreen> {
                 title,
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: value ? theme.colorScheme.onSurface : Colors.grey,
+                  color: value
+                      ? theme.colorScheme.onSurface
+                      : theme.colorScheme.onSurface.withOpacity(0.5),
                 ),
               ),
             ),
@@ -488,7 +517,7 @@ class _LiveRadarScreenState extends State<LiveRadarScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: theme.cardColor.withOpacity(0.5),
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isAlert
@@ -499,7 +528,13 @@ class _LiveRadarScreenState extends State<LiveRadarScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+          Text(
+            label,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),
             transitionBuilder: (child, animation) =>
@@ -520,7 +555,7 @@ class _LiveRadarScreenState extends State<LiveRadarScreen> {
   }
 }
 
-// --- DRIVER OVERLAY (NEW) ---
+// --- DRIVER OVERLAY (UPDATED FOR LIGHT THEME FIXES) ---
 class _DriverInfoOverlay extends StatelessWidget {
   final Map<String, dynamic> driverData;
   final LiveRadarBloc bloc;
@@ -538,14 +573,17 @@ class _DriverInfoOverlay extends StatelessWidget {
     final String driverId =
         driverData['driverId'] ?? driverData['DriverId'] ?? '';
     final String name =
-        driverData['fullName'] ?? driverData['FullName'] ?? 'Unknown Driver';
+        driverData['name'] ?? driverData['Name'] ?? 'Unknown Driver';
     final String vehicle =
-        driverData['vehicle'] ?? driverData['Vehicle'] ?? 'Unknown Vehicle';
+        driverData['vehicleDetails'] ??
+        driverData['VehicleDetails'] ??
+        'Unknown Vehicle';
     final String stateStr = driverData['calculatedState'] ?? 'Unknown';
 
     Color stateColor = Colors.green;
     if (stateStr == 'Active Job') stateColor = Colors.red;
     if (stateStr == 'Idle Warning') stateColor = Colors.orange;
+    if (stateStr == 'Offline') stateColor = Colors.grey;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
@@ -555,7 +593,9 @@ class _DriverInfoOverlay extends StatelessWidget {
           width: 360,
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: theme.cardColor.withOpacity(0.85),
+            color: theme.colorScheme.surface.withOpacity(
+              0.95,
+            ), // Fixed for light mode contrast
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: stateColor.withOpacity(0.5), width: 1.5),
             boxShadow: [
@@ -600,7 +640,11 @@ class _DriverInfoOverlay extends StatelessWidget {
                         shape: BoxShape.circle,
                         color: theme.dividerColor.withOpacity(0.2),
                       ),
-                      child: const Icon(Icons.close, size: 16),
+                      child: Icon(
+                        Icons.close,
+                        size: 16,
+                        color: theme.colorScheme.onSurface,
+                      ),
                     ),
                   ),
                 ],
@@ -625,15 +669,16 @@ class _DriverInfoOverlay extends StatelessWidget {
                         Text(
                           name,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
+                            color: theme.colorScheme.onSurface,
                           ),
                         ),
                         Text(
                           vehicle,
                           style: TextStyle(
-                            color: theme.disabledColor,
+                            color: theme.colorScheme.onSurface.withOpacity(0.6),
                             fontSize: 13,
                           ),
                         ),
@@ -671,7 +716,7 @@ class _DriverInfoOverlay extends StatelessWidget {
   }
 }
 
-// --- JOB OVERLAY ---
+// --- JOB OVERLAY (UPDATED FOR LIGHT THEME FIXES) ---
 class _JobInfoOverlay extends StatelessWidget {
   final Map<String, dynamic> jobData;
   final VoidCallback onClose;
@@ -706,7 +751,9 @@ class _JobInfoOverlay extends StatelessWidget {
           width: 360,
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: theme.cardColor.withOpacity(0.85),
+            color: theme.colorScheme.surface.withOpacity(
+              0.95,
+            ), // Fixed for light mode contrast
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: status == 0
@@ -760,7 +807,11 @@ class _JobInfoOverlay extends StatelessWidget {
                         shape: BoxShape.circle,
                         color: theme.dividerColor.withOpacity(0.2),
                       ),
-                      child: const Icon(Icons.close, size: 16),
+                      child: Icon(
+                        Icons.close,
+                        size: 16,
+                        color: theme.colorScheme.onSurface,
+                      ),
                     ),
                   ),
                 ],
@@ -785,15 +836,16 @@ class _JobInfoOverlay extends StatelessWidget {
                         Text(
                           customerName,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
+                            color: theme.colorScheme.onSurface,
                           ),
                         ),
                         Text(
                           customerPhone,
                           style: TextStyle(
-                            color: theme.disabledColor,
+                            color: theme.colorScheme.onSurface.withOpacity(0.6),
                             fontSize: 13,
                           ),
                         ),

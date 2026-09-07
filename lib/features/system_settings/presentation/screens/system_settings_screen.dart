@@ -16,9 +16,13 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
   String _staffSearchQuery = '';
   final _globalFormKey = GlobalKey<FormState>();
 
-  // --- CACHED CONTROLLERS (Prevents cursor jumping on state rebuilds) ---
-  final _commissionCtrl = TextEditingController();
+  // --- MULTI-TIERED FINANCIAL CONTROLLERS ---
+  final _b2cCommissionCtrl = TextEditingController();
+  final _b2bCommissionCtrl = TextEditingController();
+  final _driverPayoutCtrl = TextEditingController();
+  final _paymentFeeCtrl = TextEditingController();
   final _taxCtrl = TextEditingController();
+
   final _radiusCtrl = TextEditingController();
   final _supportEmailCtrl = TextEditingController();
   bool _isMaintenance = false;
@@ -26,7 +30,10 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
 
   @override
   void dispose() {
-    _commissionCtrl.dispose();
+    _b2cCommissionCtrl.dispose();
+    _b2bCommissionCtrl.dispose();
+    _driverPayoutCtrl.dispose();
+    _paymentFeeCtrl.dispose();
     _taxCtrl.dispose();
     _radiusCtrl.dispose();
     _supportEmailCtrl.dispose();
@@ -52,7 +59,6 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                 Expanded(
                   child: BlocConsumer<SystemSettingsBloc, SystemSettingsState>(
                     listener: (context, state) {
-                      // Handle notifications
                       if (state is SettingsActionSuccess) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -69,13 +75,23 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                         );
                       }
 
-                      // Safely initialize the text controllers ONLY once when data is fetched
+                      // Hydrate Financial Controllers
                       if (state is SettingsLoaded && !_isConfigInitialized) {
-                        _commissionCtrl.text =
-                            (state.globalConfig.platformCommissionRate * 100)
+                        _b2cCommissionCtrl.text =
+                            (state.globalConfig.b2cCommissionRate * 100)
+                                .toStringAsFixed(2);
+                        _b2bCommissionCtrl.text =
+                            (state.globalConfig.b2bCommissionRate * 100)
+                                .toStringAsFixed(2);
+                        _driverPayoutCtrl.text =
+                            (state.globalConfig.driverPayoutRate * 100)
+                                .toStringAsFixed(2);
+                        _paymentFeeCtrl.text =
+                            (state.globalConfig.paymentGatewayFee * 100)
                                 .toStringAsFixed(2);
                         _taxCtrl.text = (state.globalConfig.taxRate * 100)
                             .toStringAsFixed(2);
+
                         _radiusCtrl.text = state
                             .globalConfig
                             .maxDispatchRadiusKm
@@ -97,24 +113,18 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                       }
 
                       if (state is SettingsLoaded) {
-                        final filteredStaff = state.staffList
-                            .where(
-                              (s) =>
-                                  s.fullName.toLowerCase().contains(
-                                    _staffSearchQuery,
-                                  ) ||
-                                  s.email.toLowerCase().contains(
-                                    _staffSearchQuery,
-                                  ) ||
-                                  s.role.toLowerCase().contains(
-                                    _staffSearchQuery,
-                                  ),
-                            )
-                            .toList();
+                        final filteredStaff = state.staffList.where((s) {
+                          return s.fullName.toLowerCase().contains(
+                                _staffSearchQuery,
+                              ) ||
+                              s.email.toLowerCase().contains(
+                                _staffSearchQuery,
+                              ) ||
+                              s.role.toLowerCase().contains(_staffSearchQuery);
+                        }).toList();
 
                         return ResponsiveBuilder(
                           builder: (context, sizingInfo) {
-                            // --- DESKTOP LAYOUT (Split, Independent Scrolling) ---
                             if (sizingInfo.isDesktop) {
                               return Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -145,7 +155,6 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                               );
                             }
 
-                            // --- MOBILE/TABLET LAYOUT (Single Continuous Scroll) ---
                             return SingleChildScrollView(
                               child: Column(
                                 children: [
@@ -179,27 +188,42 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Platform Control & Security',
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Platform Control & Security',
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Manage global environment operations, financial limits, and staff authorization structures.',
-              style: TextStyle(color: theme.disabledColor),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                'Manage global environment operations, financial limits, and staff authorization structures.',
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
         ),
         Builder(
           builder: (ctx) => FilledButton.icon(
             icon: const Icon(Icons.refresh),
-            label: const Text('Resync Architecture'),
+            label: const Text(
+              'Resync Architecture',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
             onPressed: () =>
                 ctx.read<SystemSettingsBloc>().add(FetchSystemSettings()),
           ),
@@ -225,7 +249,9 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                   : theme.cardColor,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: _isMaintenance ? Colors.red : theme.dividerColor,
+                color: _isMaintenance
+                    ? Colors.red
+                    : theme.dividerColor.withValues(alpha: 0.3),
               ),
             ),
             child: Column(
@@ -235,14 +261,18 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                   children: [
                     Icon(
                       Icons.warning_amber_rounded,
-                      color: _isMaintenance ? Colors.red : Colors.grey,
+                      color: _isMaintenance
+                          ? Colors.red
+                          : theme.colorScheme.onSurface.withValues(alpha: 0.5),
                     ),
                     const SizedBox(width: 12),
                     Text(
                       'Emergency Controls',
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: _isMaintenance ? Colors.red : Colors.white,
+                        color: _isMaintenance
+                            ? Colors.red
+                            : theme.colorScheme.onSurface,
                       ),
                     ),
                   ],
@@ -253,12 +283,17 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                     'Environment Maintenance Killswitch',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: _isMaintenance ? Colors.red : Colors.white,
+                      color: _isMaintenance
+                          ? Colors.red
+                          : theme.colorScheme.onSurface,
                     ),
                   ),
-                  subtitle: const Text(
+                  subtitle: Text(
                     'Suspends external client APIs and freezes driver allocations.',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
                   ),
                   value: _isMaintenance,
                   activeColor: Colors.red,
@@ -270,13 +305,15 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           ),
           const SizedBox(height: 24),
 
-          // --- FINANCIAL PARAMETERS ---
+          // --- FINANCIAL & COMMISSION PARAMETERS ---
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: theme.cardColor,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: theme.dividerColor),
+              border: Border.all(
+                color: theme.dividerColor.withValues(alpha: 0.3),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -286,44 +323,111 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                     Icon(Icons.account_balance, color: theme.primaryColor),
                     const SizedBox(width: 12),
                     Text(
-                      'Financial Parameters',
+                      'Revenue & Tax Matrices',
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: theme.colorScheme.onSurface,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 24),
-                TextFormField(
-                  controller: _commissionCtrl,
-                  decoration: InputDecoration(
-                    labelText: 'Platform Commission Yield (%)',
-                    border: const OutlineInputBorder(),
-                    filled: true,
-                    fillColor: theme.scaffoldBackgroundColor,
-                    suffixIcon: const Icon(Icons.percent),
-                  ),
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  style: const TextStyle(color: Colors.white),
-                  validator: (v) => v!.isEmpty ? 'Required' : null,
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _b2cCommissionCtrl,
+                        style: TextStyle(color: theme.colorScheme.onSurface),
+                        decoration: InputDecoration(
+                          labelText: 'B2C Commission (%)',
+                          border: const OutlineInputBorder(),
+                          filled: true,
+                          fillColor: theme.scaffoldBackgroundColor,
+                          suffixIcon: const Icon(Icons.percent, size: 16),
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        validator: (v) => v!.isEmpty ? 'Required' : null,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _b2bCommissionCtrl,
+                        style: TextStyle(color: theme.colorScheme.onSurface),
+                        decoration: InputDecoration(
+                          labelText: 'B2B Corporate Commission (%)',
+                          border: const OutlineInputBorder(),
+                          filled: true,
+                          fillColor: theme.scaffoldBackgroundColor,
+                          suffixIcon: const Icon(Icons.percent, size: 16),
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        validator: (v) => v!.isEmpty ? 'Required' : null,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _driverPayoutCtrl,
+                        style: TextStyle(color: theme.colorScheme.onSurface),
+                        decoration: InputDecoration(
+                          labelText: 'Driver Payout Ratio (%)',
+                          border: const OutlineInputBorder(),
+                          filled: true,
+                          fillColor: theme.scaffoldBackgroundColor,
+                          suffixIcon: const Icon(Icons.percent, size: 16),
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        validator: (v) => v!.isEmpty ? 'Required' : null,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _paymentFeeCtrl,
+                        style: TextStyle(color: theme.colorScheme.onSurface),
+                        decoration: InputDecoration(
+                          labelText: 'Payment Gateway Fee (%)',
+                          border: const OutlineInputBorder(),
+                          filled: true,
+                          fillColor: theme.scaffoldBackgroundColor,
+                          suffixIcon: const Icon(Icons.percent, size: 16),
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        validator: (v) => v!.isEmpty ? 'Required' : null,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
                 TextFormField(
                   controller: _taxCtrl,
+                  style: TextStyle(color: theme.colorScheme.onSurface),
                   decoration: InputDecoration(
-                    labelText: 'Regional Tax Base Rate (%)',
+                    labelText: 'Regional Sales Tax Rate (%)',
                     border: const OutlineInputBorder(),
                     filled: true,
                     fillColor: theme.scaffoldBackgroundColor,
-                    suffixIcon: const Icon(Icons.percent),
+                    suffixIcon: const Icon(Icons.percent, size: 16),
                   ),
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
-                  style: const TextStyle(color: Colors.white),
                   validator: (v) => v!.isEmpty ? 'Required' : null,
                 ),
               ],
@@ -337,7 +441,9 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
             decoration: BoxDecoration(
               color: theme.cardColor,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: theme.dividerColor),
+              border: Border.all(
+                color: theme.dividerColor.withValues(alpha: 0.3),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -353,7 +459,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                       'Operational Parameters',
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: theme.colorScheme.onSurface,
                       ),
                     ),
                   ],
@@ -361,6 +467,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                 const SizedBox(height: 24),
                 TextFormField(
                   controller: _radiusCtrl,
+                  style: TextStyle(color: theme.colorScheme.onSurface),
                   decoration: InputDecoration(
                     labelText: 'Max Auto-Dispatch Radius (KM)',
                     border: const OutlineInputBorder(),
@@ -369,12 +476,12 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                     suffixIcon: const Icon(Icons.radar),
                   ),
                   keyboardType: TextInputType.number,
-                  style: const TextStyle(color: Colors.white),
                   validator: (v) => v!.isEmpty ? 'Required' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _supportEmailCtrl,
+                  style: TextStyle(color: theme.colorScheme.onSurface),
                   decoration: InputDecoration(
                     labelText: 'Public Helpdesk Email',
                     border: const OutlineInputBorder(),
@@ -383,7 +490,6 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                     suffixIcon: const Icon(Icons.email),
                   ),
                   keyboardType: TextInputType.emailAddress,
-                  style: const TextStyle(color: Colors.white),
                   validator: (v) => v!.isEmpty || !v.contains('@')
                       ? 'Valid email required'
                       : null,
@@ -407,8 +513,17 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                   bloc.add(
                     UpdateGlobalVariables(
                       settings: GlobalSettingsModel(
-                        platformCommissionRate:
-                            (double.tryParse(_commissionCtrl.text) ?? 20.0) /
+                        b2cCommissionRate:
+                            (double.tryParse(_b2cCommissionCtrl.text) ?? 20.0) /
+                            100.0,
+                        b2bCommissionRate:
+                            (double.tryParse(_b2bCommissionCtrl.text) ?? 15.0) /
+                            100.0,
+                        driverPayoutRate:
+                            (double.tryParse(_driverPayoutCtrl.text) ?? 80.0) /
+                            100.0,
+                        paymentGatewayFee:
+                            (double.tryParse(_paymentFeeCtrl.text) ?? 2.9) /
                             100.0,
                         taxRate:
                             (double.tryParse(_taxCtrl.text) ?? 13.0) / 100.0,
@@ -437,7 +552,6 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
     final bloc = context.read<SystemSettingsBloc>();
 
     Widget listWidget = ListView.separated(
-      // FIX: Seamlessly handle unbounded height exceptions on mobile by utilizing shrinkWrap
       shrinkWrap: !isDesktop,
       physics: isDesktop
           ? const AlwaysScrollableScrollPhysics()
@@ -456,8 +570,8 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           ),
           leading: CircleAvatar(
             backgroundColor: s.isActive
-                ? theme.colorScheme.secondary.withValues(alpha: 0.2)
-                : Colors.red.withValues(alpha: 0.2),
+                ? theme.colorScheme.secondary.withValues(alpha: 0.15)
+                : Colors.red.withValues(alpha: 0.1),
             child: Icon(
               Icons.shield,
               color: s.isActive ? theme.colorScheme.secondary : Colors.red,
@@ -465,12 +579,15 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           ),
           title: Row(
             children: [
-              Text(
-                s.fullName,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  decoration: s.isActive ? null : TextDecoration.lineThrough,
+              Expanded(
+                child: Text(
+                  s.fullName,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface,
+                    decoration: s.isActive ? null : TextDecoration.lineThrough,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               const SizedBox(width: 8),
@@ -478,36 +595,53 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                 Chip(
                   label: const Text(
                     'System Admin',
-                    style: TextStyle(fontSize: 10, color: Colors.purple),
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.purple,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  backgroundColor: Colors.purple.withValues(alpha: 0.2),
+                  backgroundColor: Colors.purple.withValues(alpha: 0.1),
+                  side: BorderSide.none,
                   padding: EdgeInsets.zero,
                   visualDensity: VisualDensity.compact,
-                  side: BorderSide.none,
                 ),
               if (!s.isActive)
                 Chip(
                   label: const Text(
                     'Suspended',
-                    style: TextStyle(fontSize: 10, color: Colors.red),
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.red,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  backgroundColor: Colors.red.withValues(alpha: 0.2),
+                  backgroundColor: Colors.red.withValues(alpha: 0.1),
+                  side: BorderSide.none,
                   padding: EdgeInsets.zero,
                   visualDensity: VisualDensity.compact,
-                  side: BorderSide.none,
                 ),
             ],
           ),
           subtitle: Text(
             '${s.role} | ${s.email}',
-            style: TextStyle(color: theme.disabledColor),
+            style: TextStyle(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               OutlinedButton.icon(
                 icon: const Icon(Icons.key),
-                label: const Text('Access Map'),
+                label: const Text(
+                  'Access Map',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: theme.dividerColor),
+                ),
                 onPressed: s.isActive
                     ? () => _showPrivilegesModal(context, s)
                     : null,
@@ -531,7 +665,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       decoration: BoxDecoration(
         color: theme.cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.dividerColor),
+        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -541,25 +675,33 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.admin_panel_settings,
-                      color: theme.colorScheme.secondary,
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Access Control Matrix',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                Expanded(
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.admin_panel_settings,
+                        color: theme.colorScheme.secondary,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Access Control Matrix',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 FilledButton.tonalIcon(
                   icon: const Icon(Icons.person_add),
-                  label: const Text('Provision User'),
+                  label: const Text(
+                    'Provision User',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   onPressed: () => _showInviteModal(context),
                 ),
               ],
@@ -568,6 +710,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24.0),
             child: TextField(
+              style: TextStyle(color: theme.colorScheme.onSurface),
               decoration: InputDecoration(
                 hintText: 'Search by Name, Role, or Email...',
                 prefixIcon: const Icon(Icons.search),
@@ -583,19 +726,20 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          const Divider(height: 1),
+          Divider(height: 1, color: theme.dividerColor.withValues(alpha: 0.3)),
           if (staff.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(48.0),
+            Padding(
+              padding: const EdgeInsets.all(48.0),
               child: Center(
                 child: Text(
                   'No matching infrastructure records found.',
-                  style: TextStyle(color: Colors.grey),
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
                 ),
               ),
             )
           else
-            // FIX: If we are on Desktop, this claims the rest of the unbounded height securely. If mobile, it fits naturally.
             isDesktop ? Expanded(child: listWidget) : listWidget,
         ],
       ),
@@ -607,19 +751,26 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
     StaffUserModel user,
     SystemSettingsBloc bloc,
   ) {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        backgroundColor: theme.scaffoldBackgroundColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
           user.isActive ? 'Suspend Security Node?' : 'Reactivate Profile?',
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(
+            color: theme.colorScheme.onSurface,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         content: Text(
           user.isActive
               ? 'This action will instantly terminate all active JWT sessions for ${user.fullName} and reject further API access.'
               : 'This will restore ${user.fullName}\'s ability to authenticate using their existing credentials.',
-          style: const TextStyle(color: Colors.grey),
+          style: TextStyle(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+          ),
         ),
         actions: [
           TextButton(
@@ -628,7 +779,9 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: user.isActive ? Colors.red : Colors.green,
+              backgroundColor: user.isActive
+                  ? Colors.red.shade700
+                  : Colors.green.shade700,
               foregroundColor: Colors.white,
             ),
             onPressed: () {
@@ -639,6 +792,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
             },
             child: Text(
               user.isActive ? 'Execute Suspension' : 'Confirm Restoration',
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -659,9 +813,15 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
         final theme = Theme.of(parentContext);
         return AlertDialog(
           backgroundColor: theme.scaffoldBackgroundColor,
-          title: const Text(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Text(
             'Provision New Network Identity',
-            style: TextStyle(color: Colors.white),
+            style: TextStyle(
+              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           content: SizedBox(
             width: 400,
@@ -672,25 +832,25 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                 children: [
                   TextFormField(
                     controller: nameCtrl,
+                    style: TextStyle(color: theme.colorScheme.onSurface),
                     decoration: InputDecoration(
                       labelText: 'Legal Name',
                       border: const OutlineInputBorder(),
                       filled: true,
                       fillColor: theme.cardColor,
                     ),
-                    style: const TextStyle(color: Colors.white),
                     validator: (v) => v!.isEmpty ? 'Name required' : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: emailCtrl,
+                    style: TextStyle(color: theme.colorScheme.onSurface),
                     decoration: InputDecoration(
                       labelText: 'Corporate Email',
                       border: const OutlineInputBorder(),
                       filled: true,
                       fillColor: theme.cardColor,
                     ),
-                    style: const TextStyle(color: Colors.white),
                     validator: (v) => !v!.contains('@')
                         ? 'Valid domain email required'
                         : null,
@@ -704,6 +864,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                       fillColor: theme.cardColor,
                     ),
                     dropdownColor: theme.cardColor,
+                    style: TextStyle(color: theme.colorScheme.onSurface),
                     value: selectedRole,
                     items:
                         [
@@ -713,13 +874,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                               'Financial Controller',
                             ]
                             .map(
-                              (r) => DropdownMenuItem(
-                                value: r,
-                                child: Text(
-                                  r,
-                                  style: const TextStyle(color: Colors.white),
-                                ),
-                              ),
+                              (r) => DropdownMenuItem(value: r, child: Text(r)),
                             )
                             .toList(),
                     onChanged: (val) {
@@ -748,7 +903,10 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                   Navigator.pop(dialogContext);
                 }
               },
-              child: const Text('Generate Activation Link'),
+              child: const Text(
+                'Generate Activation Link',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         );
@@ -771,15 +929,18 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
     final bloc = parentContext.read<SystemSettingsBloc>();
     List<String> currentPerms = List.from(staff.permissions);
 
+    // FULLY SYNCED WITH BACKEND AppPermissions.cs
     final Map<String, Map<String, String>> permissionGroups = {
-      'Fleet & CRM Access': {
+      'Fleet & User Management': {
         'ViewUsers': 'View staff, drivers, and customer directories.',
         'ManageDrivers': 'Onboard, approve, suspend, and edit driver profiles.',
         'ManageStaff':
             'Provision new staff, edit HR records, and suspend accounts.',
         'ManageCustomers': 'Edit customer CRM profiles and vehicle garages.',
+        'ManageRBAC':
+            'Modify system access and permissions for other employees.',
       },
-      'Dispatch Routing': {
+      'Dispatch & Operations': {
         'ViewRequests':
             'View active fleet map, live dispatches, and heatmap history.',
         'ManageRequests':
@@ -788,14 +949,25 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
             'Create emergency manual dispatch jobs and route them.',
         'CancelJobs':
             'Force cancel active jobs and apply cancellation penalties.',
+        'ManageAddons':
+            'Add or reverse financial addons and upload job photos.',
       },
-      'Finance & Treasury': {
+      'Finance & Billing': {
         'ViewFinance':
             'View financial KPIs, revenue dashboards, and invoice history.',
         'ManageFinance': 'Create, edit, and delete B2B/B2C invoices.',
         'IssueRefunds': 'Process and approve Moneris payment refunds.',
         'OverridePricing':
             'Manually override total job fares and add custom surcharges.',
+        'ManagePricing':
+            'Adjust global rate cards, base fares, and surge metrics.',
+      },
+      'Helpdesk & Global Settings': {
+        'ManageSupport':
+            'View, escalate, and resolve customer support tickets.',
+        'ViewCallLogs': 'Access and playback historical VoIP call recordings.',
+        'ManageSettings':
+            'Modify platform commission percentages and tax rates.',
       },
     };
 
@@ -807,12 +979,22 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           builder: (context, setState) {
             return AlertDialog(
               backgroundColor: theme.scaffoldBackgroundColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
               title: Text(
                 'Security Matrix: ${staff.fullName}',
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              content: SizedBox(
-                width: 700,
+              content: Container(
+                constraints: const BoxConstraints(
+                  maxWidth: 800,
+                  maxHeight: 800,
+                ),
+                width: 800,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -821,7 +1003,9 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                       decoration: BoxDecoration(
                         color: Colors.orange.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.orange),
+                        border: Border.all(
+                          color: Colors.orange.withValues(alpha: 0.5),
+                        ),
                       ),
                       child: Row(
                         children: [
@@ -834,8 +1018,10 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                             child: Text(
                               'Changes to Role-Based Access Control take effect upon the user\'s next API interaction.',
                               style: TextStyle(
-                                color: Colors.orange.shade200,
-                                fontSize: 12,
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.8,
+                                ),
+                                fontSize: 13,
                               ),
                             ),
                           ),
@@ -843,11 +1029,15 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    // FIX: Replaced Expanded with Flexible + shrinkWrap: true so the dialog never overflows vertically
                     Flexible(
                       child: ListView(
                         shrinkWrap: true,
                         children: permissionGroups.entries.map((group) {
+                          final allGroupKeys = group.value.keys.toList();
+                          final bool allSelected = allGroupKeys.every(
+                            (k) => currentPerms.contains(k),
+                          );
+
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -862,14 +1052,43 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                                   ),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                width: double.infinity,
-                                child: Text(
-                                  group.key,
-                                  style: TextStyle(
-                                    color: theme.primaryColor,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                  ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      group.key,
+                                      style: TextStyle(
+                                        color: theme.primaryColor,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                    TextButton(
+                                      style: TextButton.styleFrom(
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          if (allSelected) {
+                                            currentPerms.removeWhere(
+                                              (k) => allGroupKeys.contains(k),
+                                            );
+                                          } else {
+                                            for (var k in allGroupKeys) {
+                                              if (!currentPerms.contains(k))
+                                                currentPerms.add(k);
+                                            }
+                                          }
+                                        });
+                                      },
+                                      child: Text(
+                                        allSelected
+                                            ? 'Deselect All'
+                                            : 'Select All',
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -878,32 +1097,36 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                                 return CheckboxListTile(
                                   title: Text(
                                     perm.key,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                      fontSize: 13,
+                                      color: theme.colorScheme.onSurface,
+                                      fontSize: 14,
                                     ),
                                   ),
                                   subtitle: Text(
                                     perm.value,
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.grey,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: theme.colorScheme.onSurface
+                                          .withValues(alpha: 0.6),
                                     ),
                                   ),
                                   value: hasPerm,
                                   dense: true,
                                   activeColor: theme.primaryColor,
+                                  controlAffinity:
+                                      ListTileControlAffinity.leading,
                                   onChanged: (val) {
                                     setState(() {
-                                      if (val == true)
+                                      if (val == true) {
                                         currentPerms.add(perm.key);
-                                      else
+                                      } else {
                                         currentPerms.remove(perm.key);
+                                      }
                                     });
                                   },
                                 );
-                              }).toList(),
+                              }),
                               const SizedBox(height: 16),
                             ],
                           );
@@ -929,7 +1152,10 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                     );
                     Navigator.pop(dialogContext);
                   },
-                  label: const Text('Burn Policies to Token'),
+                  label: const Text(
+                    'Burn Policies to Token',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             );

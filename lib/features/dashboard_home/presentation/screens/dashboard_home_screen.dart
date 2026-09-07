@@ -40,7 +40,8 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
           sl<DashboardBloc>()..add(FetchDashboardKpis(filter: _currentFilter)),
       child: Scaffold(
         key: _scaffoldKey,
-        backgroundColor: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+        // FIX: Replaced surfaceVariant for better Light Mode contrast
+        backgroundColor: theme.colorScheme.surface,
         endDrawer: _AdvancedFilterDrawer(
           currentFilter: _currentFilter,
           onApply: _applyFilter,
@@ -174,7 +175,10 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
               const SizedBox(height: 8),
               Text(
                 'Full spectrum analysis of logistics, financials, and disputes.',
-                style: TextStyle(color: theme.disabledColor, fontSize: 16),
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                  fontSize: 16,
+                ),
               ),
             ],
           ),
@@ -290,21 +294,21 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
         title: 'Gross Revenue',
         value: '\$${kpis.totalRevenue.toStringAsFixed(2)}',
         icon: Icons.account_balance_wallet,
-        tooltip: 'Total GrossRevenue from CommissionRecords.',
+        tooltip: 'Total GrossRevenue from completed dispatches.',
       ),
       _MetricCard(
         title: 'Platform Net (Fees)',
         value: '\$${(kpis.totalRevenue * 0.15).toStringAsFixed(2)}',
         icon: Icons.savings,
         highlightColor: Colors.green,
-        tooltip: 'Total PlatformCut retained from CommissionRecords.',
+        tooltip: 'Estimated platform retained revenue.',
       ),
       _MetricCard(
         title: 'Driver Payouts',
         value: '\$${(kpis.totalRevenue * 0.85).toStringAsFixed(2)}',
         icon: Icons.payments,
         highlightColor: Colors.orange,
-        tooltip: 'Total DriverCut accumulated from CommissionRecords.',
+        tooltip: 'Estimated driver allocation pending payout.',
       ),
       _MetricCard(
         title: 'Avg Ticket Size',
@@ -344,8 +348,7 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
                 value: '${(kpis.cancellationRate * 100).toStringAsFixed(1)}%',
                 isAlert: kpis.cancellationRate > 0.15,
                 icon: Icons.cancel_presentation,
-                tooltip:
-                    'Ratio of CancellationRecords to total ServiceRequests.',
+                tooltip: 'Ratio of Cancellations to total ServiceRequests.',
               ),
             ),
             SizedBox(
@@ -403,6 +406,7 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
       decoration: BoxDecoration(
         color: theme.cardColor,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: theme.dividerColor.withOpacity(0.2)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.02),
@@ -419,6 +423,7 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
             'Revenue Trend',
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
+              color: theme.colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 40),
@@ -430,7 +435,7 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
                   show: true,
                   drawVerticalLine: false,
                   getDrawingHorizontalLine: (value) => FlLine(
-                    color: theme.dividerColor.withOpacity(0.3),
+                    color: theme.dividerColor.withOpacity(0.5),
                     strokeWidth: 1,
                     dashArray: [5, 5],
                   ),
@@ -449,7 +454,7 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
                       getTitlesWidget: (value, meta) => Text(
                         currencyFormatter.format(value),
                         style: TextStyle(
-                          color: theme.disabledColor,
+                          color: theme.colorScheme.onSurface.withOpacity(0.6),
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                         ),
@@ -468,7 +473,9 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
                             child: Text(
                               kpis.revenueTrend[value.toInt()].xLabel,
                               style: TextStyle(
-                                color: theme.disabledColor,
+                                color: theme.colorScheme.onSurface.withOpacity(
+                                  0.6,
+                                ),
                                 fontSize: 12,
                               ),
                             ),
@@ -515,6 +522,7 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
       decoration: BoxDecoration(
         color: theme.cardColor,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: theme.dividerColor.withOpacity(0.2)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.02),
@@ -531,6 +539,7 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
             'Resource Demand',
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
+              color: theme.colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 40),
@@ -540,7 +549,9 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
                 ? Center(
                     child: Text(
                       'No data for selected filters',
-                      style: TextStyle(color: theme.disabledColor),
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      ),
                     ),
                   )
                 : PieChart(
@@ -572,8 +583,11 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: theme.cardColor,
                               borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: theme.dividerColor.withOpacity(0.2),
+                              ),
                               boxShadow: const [
                                 BoxShadow(color: Colors.black12, blurRadius: 4),
                               ],
@@ -622,7 +636,6 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
           return SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: ConstrainedBox(
-              // FIX: This ensures the table stretches fully across the available card space
               constraints: BoxConstraints(minWidth: constraints.maxWidth),
               child: DataTable(
                 headingRowColor: WidgetStateProperty.resolveWith(
@@ -663,8 +676,9 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
                               esc.driverName.isEmpty
                                   ? 'Unassigned'
                                   : esc.driverName,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.w600,
+                                color: theme.colorScheme.onSurface,
                               ),
                             ),
                           ],
@@ -685,7 +699,9 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: isCritical ? Colors.red : Colors.orange,
+                            color: isCritical
+                                ? theme.colorScheme.error
+                                : Colors.orange,
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
@@ -701,7 +717,10 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
                       DataCell(
                         Text(
                           esc.statusText,
-                          style: const TextStyle(fontWeight: FontWeight.w500),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color: theme.colorScheme.onSurface,
+                          ),
                         ),
                       ),
                     ],
@@ -741,7 +760,7 @@ class _MetricCard extends StatelessWidget {
         : theme.cardColor;
     final borderColor = isAlert
         ? theme.colorScheme.error.withOpacity(0.5)
-        : theme.dividerColor.withOpacity(0.1);
+        : theme.dividerColor.withOpacity(0.2);
     final iconColor =
         highlightColor ??
         (isAlert ? theme.colorScheme.error : theme.primaryColor);
@@ -772,7 +791,7 @@ class _MetricCard extends StatelessWidget {
                 child: Text(
                   title,
                   style: theme.textTheme.titleSmall?.copyWith(
-                    color: theme.disabledColor,
+                    color: theme.colorScheme.onSurface.withOpacity(0.6),
                     fontWeight: FontWeight.bold,
                     letterSpacing: 0.5,
                   ),
@@ -793,15 +812,12 @@ class _MetricCard extends StatelessWidget {
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(
-                      color: theme.disabledColor.withOpacity(0.5),
-                      width: 1.5,
-                    ),
+                    border: Border.all(color: theme.dividerColor, width: 1.5),
                   ),
                   child: Icon(
                     Icons.info_outline,
                     size: 12,
-                    color: theme.disabledColor,
+                    color: theme.colorScheme.onSurface.withOpacity(0.6),
                   ),
                 ),
               ),
@@ -865,10 +881,12 @@ class _AdvancedFilterDrawerState extends State<_AdvancedFilterDrawer> {
     super.initState();
     _startDate = widget.currentFilter.startDate;
     _endDate = widget.currentFilter.endDate;
-    if (widget.currentFilter.serviceTypes != null)
+    if (widget.currentFilter.serviceTypes != null) {
       _selectedServices.addAll(widget.currentFilter.serviceTypes!);
-    if (widget.currentFilter.statuses != null)
+    }
+    if (widget.currentFilter.statuses != null) {
       _selectedStatuses.addAll(widget.currentFilter.statuses!);
+    }
   }
 
   @override
@@ -877,7 +895,7 @@ class _AdvancedFilterDrawerState extends State<_AdvancedFilterDrawer> {
 
     return Drawer(
       width: 450,
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: theme.colorScheme.surface,
       child: SafeArea(
         child: Column(
           children: [
@@ -898,12 +916,13 @@ class _AdvancedFilterDrawerState extends State<_AdvancedFilterDrawer> {
                     'Deep Entity Filters',
                     style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.onSurface,
                     ),
                   ),
                 ],
               ),
             ),
-            const Divider(height: 1),
+            Divider(height: 1, color: theme.dividerColor.withOpacity(0.2)),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.all(24),
@@ -925,8 +944,15 @@ class _AdvancedFilterDrawerState extends State<_AdvancedFilterDrawer> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
+                            side: BorderSide(
+                              color: theme.dividerColor.withOpacity(0.5),
+                            ),
                           ),
-                          icon: const Icon(Icons.date_range, size: 18),
+                          icon: Icon(
+                            Icons.date_range,
+                            size: 18,
+                            color: theme.colorScheme.onSurface,
+                          ),
                           onPressed: () async {
                             final date = await showDatePicker(
                               context: context,
@@ -940,6 +966,9 @@ class _AdvancedFilterDrawerState extends State<_AdvancedFilterDrawer> {
                             _startDate != null
                                 ? DateFormat('MMM dd, yyyy').format(_startDate!)
                                 : 'Start Date',
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
+                            ),
                           ),
                         ),
                       ),
@@ -951,8 +980,15 @@ class _AdvancedFilterDrawerState extends State<_AdvancedFilterDrawer> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
+                            side: BorderSide(
+                              color: theme.dividerColor.withOpacity(0.5),
+                            ),
                           ),
-                          icon: const Icon(Icons.date_range, size: 18),
+                          icon: Icon(
+                            Icons.date_range,
+                            size: 18,
+                            color: theme.colorScheme.onSurface,
+                          ),
                           onPressed: () async {
                             final date = await showDatePicker(
                               context: context,
@@ -966,6 +1002,9 @@ class _AdvancedFilterDrawerState extends State<_AdvancedFilterDrawer> {
                             _endDate != null
                                 ? DateFormat('MMM dd, yyyy').format(_endDate!)
                                 : 'End Date',
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
+                            ),
                           ),
                         ),
                       ),
@@ -985,14 +1024,12 @@ class _AdvancedFilterDrawerState extends State<_AdvancedFilterDrawer> {
                     spacing: 12,
                     runSpacing: 12,
                     children: [
-                      _buildIntFilterChip('Towing', 1, _selectedServices),
-                      _buildIntFilterChip(
-                        'Battery Boost',
-                        2,
-                        _selectedServices,
-                      ),
-                      _buildIntFilterChip('Lockout', 3, _selectedServices),
-                      _buildIntFilterChip('Flat Tire', 4, _selectedServices),
+                      // FIX: Mapped to the new AppEnums.cs values
+                      _buildIntFilterChip('Wheel-Lift', 1, _selectedServices),
+                      _buildIntFilterChip('Flatbed', 2, _selectedServices),
+                      _buildIntFilterChip('Jump Start', 6, _selectedServices),
+                      _buildIntFilterChip('Lockout', 8, _selectedServices),
+                      _buildIntFilterChip('Fuel', 9, _selectedServices),
                     ],
                   ),
                   const SizedBox(height: 48),
@@ -1009,10 +1046,20 @@ class _AdvancedFilterDrawerState extends State<_AdvancedFilterDrawer> {
                     spacing: 12,
                     runSpacing: 12,
                     children: [
-                      _buildIntFilterChip('Pending', 0, _selectedStatuses),
-                      _buildIntFilterChip('En Route', 1, _selectedStatuses),
-                      _buildIntFilterChip('In Progress', 2, _selectedStatuses),
+                      // FIX: Mapped to the new AppEnums.cs values
+                      _buildIntFilterChip(
+                        'Pending Dispatch',
+                        0,
+                        _selectedStatuses,
+                      ),
+                      _buildIntFilterChip(
+                        'Driver Accepted',
+                        1,
+                        _selectedStatuses,
+                      ),
+                      _buildIntFilterChip('Arrived', 2, _selectedStatuses),
                       _buildIntFilterChip('Completed', 3, _selectedStatuses),
+                      _buildIntFilterChip('Cancelled', 99, _selectedStatuses),
                     ],
                   ),
                 ],
@@ -1064,12 +1111,15 @@ class _AdvancedFilterDrawerState extends State<_AdvancedFilterDrawer> {
       selected: isSelected,
       showCheckmark: false,
       selectedColor: theme.primaryColor.withOpacity(0.15),
+      backgroundColor: theme.cardColor,
       labelStyle: TextStyle(
         color: isSelected ? theme.primaryColor : theme.colorScheme.onSurface,
         fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
       ),
       side: BorderSide(
-        color: isSelected ? theme.primaryColor : theme.dividerColor,
+        color: isSelected
+            ? theme.primaryColor
+            : theme.dividerColor.withOpacity(0.5),
         width: isSelected ? 2 : 1,
       ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

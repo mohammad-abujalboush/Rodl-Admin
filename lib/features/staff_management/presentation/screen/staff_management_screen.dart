@@ -25,7 +25,7 @@ class _StaffManagementView extends StatefulWidget {
 class _StaffManagementViewState extends State<_StaffManagementView> {
   String _searchQuery = '';
 
-  // --- COMPREHENSIVE ENTERPRISE PERMISSIONS MATRIX ---
+  // --- COMPREHENSIVE ENTERPRISE PERMISSIONS MATRIX (Aligned with AppPermissions.cs) ---
   final Map<String, Map<String, String>> _permissionGroups = {
     'Fleet & User Management': {
       'ViewUsers': 'View staff, drivers, and customer directories.',
@@ -123,6 +123,7 @@ class _StaffManagementViewState extends State<_StaffManagementView> {
               SizedBox(
                 width: 400,
                 child: TextField(
+                  style: TextStyle(color: theme.colorScheme.onSurface),
                   decoration: InputDecoration(
                     hintText: 'Search employees by name, ID, or role...',
                     prefixIcon: const Icon(Icons.search),
@@ -130,7 +131,9 @@ class _StaffManagementViewState extends State<_StaffManagementView> {
                     fillColor: theme.cardColor,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
+                      borderSide: BorderSide(
+                        color: theme.dividerColor.withValues(alpha: 0.3),
+                      ),
                     ),
                   ),
                   onChanged: (val) =>
@@ -146,14 +149,14 @@ class _StaffManagementViewState extends State<_StaffManagementView> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(state.message),
-                          backgroundColor: Colors.red,
+                          backgroundColor: theme.colorScheme.error,
                         ),
                       );
                     } else if (state is StaffSuccess) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(state.message),
-                          backgroundColor: Colors.green,
+                          backgroundColor: Colors.green.shade700,
                         ),
                       );
                     }
@@ -161,23 +164,20 @@ class _StaffManagementViewState extends State<_StaffManagementView> {
                   buildWhen: (prev, current) =>
                       current is StaffLoaded || current is StaffLoading,
                   builder: (context, state) {
-                    if (state is StaffLoading)
+                    if (state is StaffLoading) {
                       return const Center(child: CircularProgressIndicator());
+                    }
                     if (state is StaffLoaded) {
-                      final filtered = state.staff
-                          .where(
-                            (s) =>
-                                s.fullName.toLowerCase().contains(
-                                  _searchQuery,
-                                ) ||
-                                s.employeeNumber.toLowerCase().contains(
-                                  _searchQuery,
-                                ) ||
-                                s.department.toLowerCase().contains(
-                                  _searchQuery,
-                                ),
-                          )
-                          .toList();
+                      final filtered = state.staff.where((s) {
+                        return s.fullName.toLowerCase().contains(
+                              _searchQuery,
+                            ) ||
+                            s.employeeNumber.toLowerCase().contains(
+                              _searchQuery,
+                            ) ||
+                            s.department.toLowerCase().contains(_searchQuery) ||
+                            s.jobTitle.toLowerCase().contains(_searchQuery);
+                      }).toList();
 
                       return _buildStaffTable(filtered, theme);
                     }
@@ -196,28 +196,41 @@ class _StaffManagementViewState extends State<_StaffManagementView> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Human Resources CRM',
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Human Resources CRM',
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Manage internal corporate staff, documentation, and RBAC permissions.',
-              style: TextStyle(color: theme.disabledColor),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                'Manage internal corporate staff, documentation, and RBAC permissions.',
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
         ),
         FilledButton.icon(
           style: FilledButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
           icon: const Icon(Icons.badge),
-          label: const Text('Provision New Employee'),
+          label: const Text(
+            'Provision New Employee',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           onPressed: () => _showEmployeeModal(context, theme, null),
         ),
       ],
@@ -225,15 +238,31 @@ class _StaffManagementViewState extends State<_StaffManagementView> {
   }
 
   Widget _buildStaffTable(List<StaffMemberModel> staff, ThemeData theme) {
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.cardColor,
+    if (staff.isEmpty) {
+      return Center(
+        child: Text(
+          'No employee records match your search.',
+          style: TextStyle(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+          ),
+        ),
+      );
+    }
+
+    return Card(
+      elevation: 0,
+      color: theme.cardColor,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.dividerColor),
+        side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.3)),
       ),
+      clipBehavior: Clip.antiAlias,
       child: ListView.separated(
         itemCount: staff.length,
-        separatorBuilder: (_, __) => const Divider(height: 1),
+        separatorBuilder: (_, __) => Divider(
+          height: 1,
+          color: theme.dividerColor.withValues(alpha: 0.2),
+        ),
         itemBuilder: (context, index) {
           final s = staff[index];
           return ListTile(
@@ -252,11 +281,15 @@ class _StaffManagementViewState extends State<_StaffManagementView> {
             ),
             title: Row(
               children: [
-                Text(
-                  s.fullName,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                Expanded(
+                  child: Text(
+                    s.fullName,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -264,9 +297,14 @@ class _StaffManagementViewState extends State<_StaffManagementView> {
                   Chip(
                     label: const Text(
                       'Suspended',
-                      style: TextStyle(color: Colors.red, fontSize: 10),
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     backgroundColor: Colors.red.withValues(alpha: 0.1),
+                    side: BorderSide.none,
                     padding: EdgeInsets.zero,
                     visualDensity: VisualDensity.compact,
                   ),
@@ -274,9 +312,14 @@ class _StaffManagementViewState extends State<_StaffManagementView> {
                   Chip(
                     label: const Text(
                       'System Admin',
-                      style: TextStyle(color: Colors.purple, fontSize: 10),
+                      style: TextStyle(
+                        color: Colors.purple,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     backgroundColor: Colors.purple.withValues(alpha: 0.1),
+                    side: BorderSide.none,
                     padding: EdgeInsets.zero,
                     visualDensity: VisualDensity.compact,
                   ),
@@ -284,6 +327,9 @@ class _StaffManagementViewState extends State<_StaffManagementView> {
             ),
             subtitle: Text(
               '${s.jobTitle} • ${s.department} • ${s.employeeNumber}',
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
             ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
@@ -320,7 +366,6 @@ class _StaffManagementViewState extends State<_StaffManagementView> {
     final phoneCtrl = TextEditingController(text: employee?.phoneNumber);
     final empNumCtrl = TextEditingController(text: employee?.employeeNumber);
 
-    // Safeguard the Dropdown State
     String? selectedDept = employee?.department;
     if (selectedDept != null &&
         !_corporateStructure.containsKey(selectedDept)) {
@@ -359,7 +404,7 @@ class _StaffManagementViewState extends State<_StaffManagementView> {
               });
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Document attached.'),
+                  content: Text('Document attached successfully.'),
                   backgroundColor: Colors.green,
                 ),
               );
@@ -367,12 +412,12 @@ class _StaffManagementViewState extends State<_StaffManagementView> {
           }
 
           return Dialog(
-            backgroundColor: theme.cardColor,
+            backgroundColor: theme.scaffoldBackgroundColor,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(24),
             ),
             child: Container(
-              width: 900,
+              constraints: const BoxConstraints(maxWidth: 900, maxHeight: 850),
               padding: const EdgeInsets.all(40),
               child: Form(
                 key: formKey,
@@ -388,6 +433,7 @@ class _StaffManagementViewState extends State<_StaffManagementView> {
                               : 'Provision New Staff',
                           style: theme.textTheme.headlineSmall?.copyWith(
                             fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onSurface,
                           ),
                         ),
                         Row(
@@ -427,216 +473,335 @@ class _StaffManagementViewState extends State<_StaffManagementView> {
                               ),
                             const SizedBox(width: 8),
                             IconButton(
-                              icon: const Icon(Icons.close),
+                              icon: Icon(
+                                Icons.close,
+                                color: theme.colorScheme.onSurface,
+                              ),
                               onPressed: () => Navigator.pop(dialogContext),
                             ),
                           ],
                         ),
                       ],
                     ),
-                    const Divider(height: 48),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              TextFormField(
-                                controller: nameCtrl,
-                                decoration: const InputDecoration(
-                                  labelText: 'Full Name *',
-                                  border: OutlineInputBorder(),
-                                ),
-                                validator: (v) =>
-                                    v!.isEmpty ? 'Required' : null,
-                              ),
-                              const SizedBox(height: 16),
-                              TextFormField(
-                                controller: emailCtrl,
-                                decoration: const InputDecoration(
-                                  labelText: 'Corporate Email *',
-                                  border: OutlineInputBorder(),
-                                ),
-                                validator: (v) =>
-                                    v!.isEmpty ? 'Required' : null,
-                              ),
-                              const SizedBox(height: 16),
-                              TextFormField(
-                                controller: phoneCtrl,
-                                decoration: const InputDecoration(
-                                  labelText: 'Phone Number',
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              if (!isEditing)
-                                CheckboxListTile(
-                                  title: const Text(
-                                    'Send Welcome Email & Password',
-                                  ),
-                                  value: sendInvite,
-                                  onChanged: (val) => setModalState(
-                                    () => sendInvite = val ?? true,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 32),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (!isEditing)
-                                DropdownButtonFormField<int>(
-                                  decoration: const InputDecoration(
-                                    labelText: 'System Access Level *',
-                                    border: OutlineInputBorder(),
-                                  ),
-                                  value: roleType,
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: 3,
-                                      child: Text('Standard Employee'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 4,
-                                      child: Text('System Administrator'),
-                                    ),
-                                  ],
-                                  onChanged: (val) {
-                                    if (val != null)
-                                      setModalState(() => roleType = val);
-                                  },
-                                ),
-                              if (!isEditing) const SizedBox(height: 16),
-                              TextFormField(
-                                controller: empNumCtrl,
-                                decoration: const InputDecoration(
-                                  labelText:
-                                      'Employee ID (Auto-generated if blank)',
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: DropdownButtonFormField<String>(
-                                      isExpanded: true,
-                                      decoration: const InputDecoration(
-                                        labelText: 'Department *',
-                                        border: OutlineInputBorder(),
+                    const Divider(height: 32),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      TextFormField(
+                                        controller: nameCtrl,
+                                        style: TextStyle(
+                                          color: theme.colorScheme.onSurface,
+                                        ),
+                                        decoration: InputDecoration(
+                                          labelText: 'Full Name *',
+                                          filled: true,
+                                          fillColor: theme.cardColor,
+                                          border: const OutlineInputBorder(),
+                                        ),
+                                        validator: (v) =>
+                                            v!.isEmpty ? 'Required' : null,
                                       ),
-                                      value: selectedDept,
-                                      items: _corporateStructure.keys
-                                          .map(
-                                            (dept) => DropdownMenuItem(
-                                              value: dept,
-                                              child: Text(dept),
+                                      const SizedBox(height: 16),
+                                      TextFormField(
+                                        controller: emailCtrl,
+                                        style: TextStyle(
+                                          color: theme.colorScheme.onSurface,
+                                        ),
+                                        decoration: InputDecoration(
+                                          labelText: 'Corporate Email *',
+                                          filled: true,
+                                          fillColor: theme.cardColor,
+                                          border: const OutlineInputBorder(),
+                                        ),
+                                        validator: (v) =>
+                                            v!.isEmpty ? 'Required' : null,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      TextFormField(
+                                        controller: phoneCtrl,
+                                        style: TextStyle(
+                                          color: theme.colorScheme.onSurface,
+                                        ),
+                                        decoration: InputDecoration(
+                                          labelText: 'Phone Number',
+                                          filled: true,
+                                          fillColor: theme.cardColor,
+                                          border: const OutlineInputBorder(),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      if (!isEditing)
+                                        CheckboxListTile(
+                                          title: Text(
+                                            'Send Welcome Email & Temporary Password',
+                                            style: TextStyle(
+                                              color:
+                                                  theme.colorScheme.onSurface,
+                                              fontSize: 13,
                                             ),
-                                          )
-                                          .toList(),
-                                      onChanged: (val) => setModalState(() {
-                                        selectedDept = val;
-                                        selectedTitle = null;
-                                      }),
-                                      validator: (v) =>
-                                          v == null ? 'Required' : null,
-                                    ),
+                                          ),
+                                          value: sendInvite,
+                                          activeColor: theme.primaryColor,
+                                          controlAffinity:
+                                              ListTileControlAffinity.leading,
+                                          contentPadding: EdgeInsets.zero,
+                                          onChanged: (val) => setModalState(
+                                            () => sendInvite = val ?? true,
+                                          ),
+                                        ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: DropdownButtonFormField<String>(
-                                      isExpanded: true,
-                                      decoration: const InputDecoration(
-                                        labelText: 'Job Title *',
-                                        border: OutlineInputBorder(),
-                                      ),
-                                      value: selectedTitle,
-                                      items: selectedDept == null
-                                          ? []
-                                          : _corporateStructure[selectedDept]!
-                                                .map(
-                                                  (title) => DropdownMenuItem(
-                                                    value: title,
-                                                    child: Text(title),
-                                                  ),
-                                                )
-                                                .toList(),
-                                      onChanged: (val) => setModalState(
-                                        () => selectedTitle = val,
-                                      ),
-                                      validator: (v) =>
-                                          v == null ? 'Required' : null,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 32),
-                    Text(
-                      'HR & Compliance Documents',
-                      style: TextStyle(
-                        color: theme.primaryColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: uploadedDocs.keys.map((key) {
-                        bool isUp = uploadedDocs[key]!.isNotEmpty;
-                        return Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.only(right: 8.0),
-                            child: InkWell(
-                              onTap: () => pickAndUploadFile(key),
-                              child: Container(
-                                height: 80,
-                                decoration: BoxDecoration(
-                                  color: isUp
-                                      ? Colors.green.withValues(alpha: 0.1)
-                                      : theme.scaffoldBackgroundColor,
-                                  border: Border.all(
-                                    color: isUp
-                                        ? Colors.green
-                                        : theme.dividerColor,
-                                  ),
-                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      isUp ? Icons.check : Icons.upload,
-                                      size: 24,
-                                      color: isUp ? Colors.green : Colors.grey,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      key,
-                                      style: const TextStyle(fontSize: 10),
-                                    ),
-                                  ],
+                                const SizedBox(width: 32),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      if (!isEditing)
+                                        DropdownButtonFormField<int>(
+                                          decoration: InputDecoration(
+                                            labelText: 'System Access Level *',
+                                            filled: true,
+                                            fillColor: theme.cardColor,
+                                            border: const OutlineInputBorder(),
+                                          ),
+                                          dropdownColor: theme.cardColor,
+                                          style: TextStyle(
+                                            color: theme.colorScheme.onSurface,
+                                          ),
+                                          value: roleType,
+                                          items: [
+                                            DropdownMenuItem(
+                                              value: 3,
+                                              child: Text(
+                                                'Standard Employee',
+                                                style: TextStyle(
+                                                  color: theme
+                                                      .colorScheme
+                                                      .onSurface,
+                                                ),
+                                              ),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: 4,
+                                              child: Text(
+                                                'System Administrator',
+                                                style: TextStyle(
+                                                  color: theme
+                                                      .colorScheme
+                                                      .onSurface,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                          onChanged: (val) {
+                                            if (val != null) {
+                                              setModalState(
+                                                () => roleType = val,
+                                              );
+                                            }
+                                          },
+                                        ),
+                                      if (!isEditing)
+                                        const SizedBox(height: 16),
+                                      TextFormField(
+                                        controller: empNumCtrl,
+                                        style: TextStyle(
+                                          color: theme.colorScheme.onSurface,
+                                        ),
+                                        decoration: InputDecoration(
+                                          labelText:
+                                              'Employee ID (Auto-generated if blank)',
+                                          filled: true,
+                                          fillColor: theme.cardColor,
+                                          border: const OutlineInputBorder(),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: DropdownButtonFormField<String>(
+                                              isExpanded: true,
+                                              decoration: InputDecoration(
+                                                labelText: 'Department *',
+                                                filled: true,
+                                                fillColor: theme.cardColor,
+                                                border:
+                                                    const OutlineInputBorder(),
+                                              ),
+                                              dropdownColor: theme.cardColor,
+                                              style: TextStyle(
+                                                color:
+                                                    theme.colorScheme.onSurface,
+                                              ),
+                                              value: selectedDept,
+                                              items: _corporateStructure.keys
+                                                  .map((dept) {
+                                                    return DropdownMenuItem(
+                                                      value: dept,
+                                                      child: Text(
+                                                        dept,
+                                                        style: TextStyle(
+                                                          color: theme
+                                                              .colorScheme
+                                                              .onSurface,
+                                                        ),
+                                                      ),
+                                                    );
+                                                  })
+                                                  .toList(),
+                                              onChanged: (val) =>
+                                                  setModalState(() {
+                                                    selectedDept = val;
+                                                    selectedTitle = null;
+                                                  }),
+                                              validator: (v) =>
+                                                  v == null ? 'Required' : null,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 16),
+                                          Expanded(
+                                            child: DropdownButtonFormField<String>(
+                                              isExpanded: true,
+                                              decoration: InputDecoration(
+                                                labelText: 'Job Title *',
+                                                filled: true,
+                                                fillColor: theme.cardColor,
+                                                border:
+                                                    const OutlineInputBorder(),
+                                              ),
+                                              dropdownColor: theme.cardColor,
+                                              style: TextStyle(
+                                                color:
+                                                    theme.colorScheme.onSurface,
+                                              ),
+                                              value: selectedTitle,
+                                              items: selectedDept == null
+                                                  ? []
+                                                  : _corporateStructure[selectedDept]!
+                                                        .map((title) {
+                                                          return DropdownMenuItem(
+                                                            value: title,
+                                                            child: Text(
+                                                              title,
+                                                              style: TextStyle(
+                                                                color: theme
+                                                                    .colorScheme
+                                                                    .onSurface,
+                                                              ),
+                                                            ),
+                                                          );
+                                                        })
+                                                        .toList(),
+                                              onChanged: (val) => setModalState(
+                                                () => selectedTitle = val,
+                                              ),
+                                              validator: (v) =>
+                                                  v == null ? 'Required' : null,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
+                              ],
+                            ),
+                            const SizedBox(height: 32),
+                            Text(
+                              'HR & Compliance Documents',
+                              style: TextStyle(
+                                color: theme.primaryColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
                               ),
                             ),
-                          ),
-                        );
-                      }).toList(),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: uploadedDocs.keys.map((key) {
+                                bool isUp = uploadedDocs[key]!.isNotEmpty;
+                                return Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(right: 8.0),
+                                    child: InkWell(
+                                      onTap: () => pickAndUploadFile(key),
+                                      child: Container(
+                                        height: 80,
+                                        decoration: BoxDecoration(
+                                          color: isUp
+                                              ? Colors.green.withValues(
+                                                  alpha: 0.1,
+                                                )
+                                              : theme.cardColor,
+                                          border: Border.all(
+                                            color: isUp
+                                                ? Colors.green
+                                                : theme.dividerColor.withValues(
+                                                    alpha: 0.3,
+                                                  ),
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              isUp
+                                                  ? Icons.check_circle
+                                                  : Icons.upload_file,
+                                              size: 24,
+                                              color: isUp
+                                                  ? Colors.green
+                                                  : theme.colorScheme.onSurface
+                                                        .withValues(alpha: 0.5),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              key,
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color:
+                                                    theme.colorScheme.onSurface,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    const Divider(height: 48),
+                    const Divider(height: 32),
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
                         style: FilledButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 20),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                         onPressed: () {
                           if (formKey.currentState!.validate()) {
@@ -665,9 +830,12 @@ class _StaffManagementViewState extends State<_StaffManagementView> {
                         },
                         child: Text(
                           isEditing
-                              ? 'Save Changes'
+                              ? 'Save Profile Changes'
                               : 'Provision Employee Account',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
                       ),
                     ),
@@ -690,7 +858,7 @@ class _StaffManagementViewState extends State<_StaffManagementView> {
       ScaffoldMessenger.of(parentContext).showSnackBar(
         const SnackBar(
           content: Text(
-            'System Administrators inherit all permissions globally.',
+            'System Administrators inherit all system permissions globally.',
           ),
         ),
       );
@@ -705,13 +873,12 @@ class _StaffManagementViewState extends State<_StaffManagementView> {
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setModalState) {
           return Dialog(
-            backgroundColor: theme.cardColor,
+            backgroundColor: theme.scaffoldBackgroundColor,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(24),
             ),
             child: Container(
-              width: 800,
-              height: 750,
+              constraints: const BoxConstraints(maxWidth: 800, maxHeight: 800),
               padding: const EdgeInsets.all(40),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -720,24 +887,49 @@ class _StaffManagementViewState extends State<_StaffManagementView> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Access Matrix: ${employee.fullName}',
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Access Control Matrix: ${employee.fullName}',
+                              style: theme.textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.onSurface,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Configure granular role-based permissions.',
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.6,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close),
+                        icon: Icon(
+                          Icons.close,
+                          color: theme.colorScheme.onSurface,
+                        ),
                         onPressed: () => Navigator.pop(dialogContext),
                       ),
                     ],
                   ),
                   const Divider(height: 32),
 
-                  // --- THE NEW GRANULAR PERMISSIONS LIST ---
                   Expanded(
                     child: ListView(
                       children: _permissionGroups.entries.map((group) {
+                        final allGroupKeys = group.value.keys.toList();
+                        final bool allSelected = allGroupKeys.every(
+                          (k) => currentPerms.contains(k),
+                        );
+
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -748,18 +940,47 @@ class _StaffManagementViewState extends State<_StaffManagementView> {
                               ),
                               decoration: BoxDecoration(
                                 color: theme.primaryColor.withValues(
-                                  alpha: 0.05,
+                                  alpha: 0.08,
                                 ),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              width: double.infinity,
-                              child: Text(
-                                group.key,
-                                style: TextStyle(
-                                  color: theme.primaryColor,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    group.key,
+                                    style: TextStyle(
+                                      color: theme.primaryColor,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  TextButton(
+                                    style: TextButton.styleFrom(
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                    onPressed: () {
+                                      setModalState(() {
+                                        if (allSelected) {
+                                          currentPerms.removeWhere(
+                                            (k) => allGroupKeys.contains(k),
+                                          );
+                                        } else {
+                                          for (var k in allGroupKeys) {
+                                            if (!currentPerms.contains(k))
+                                              currentPerms.add(k);
+                                          }
+                                        }
+                                      });
+                                    },
+                                    child: Text(
+                                      allSelected
+                                          ? 'Deselect All'
+                                          : 'Select All',
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -768,32 +989,36 @@ class _StaffManagementViewState extends State<_StaffManagementView> {
                               return CheckboxListTile(
                                 title: Text(
                                   perm.key,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 14,
+                                    color: theme.colorScheme.onSurface,
                                   ),
                                 ),
                                 subtitle: Text(
                                   perm.value,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12,
-                                    color: Colors.grey,
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.6),
                                   ),
                                 ),
                                 value: hasPerm,
+                                activeColor: theme.primaryColor,
                                 dense: true,
                                 controlAffinity:
                                     ListTileControlAffinity.leading,
                                 onChanged: (val) {
                                   setModalState(() {
-                                    if (val == true)
+                                    if (val == true) {
                                       currentPerms.add(perm.key);
-                                    else
+                                    } else {
                                       currentPerms.remove(perm.key);
+                                    }
                                   });
                                 },
                               );
-                            }).toList(),
+                            }),
                             const SizedBox(height: 24),
                           ],
                         );
@@ -801,12 +1026,15 @@ class _StaffManagementViewState extends State<_StaffManagementView> {
                     ),
                   ),
 
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 20),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                       onPressed: () {
                         bloc.add(UpdatePermissions(employee.id, currentPerms));
@@ -814,7 +1042,10 @@ class _StaffManagementViewState extends State<_StaffManagementView> {
                       },
                       child: const Text(
                         'Save Access Control List',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
                     ),
                   ),

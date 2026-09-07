@@ -140,7 +140,6 @@ class PayrollDeskBloc extends Bloc<PayrollDeskEvent, PayrollDeskState> {
   final DioClient dioClient;
 
   PayrollDeskBloc({required this.dioClient}) : super(PayrollLoading()) {
-    // 1. Fetch Preview Ledger
     on<FetchPayrollPreview>((event, emit) async {
       final currentState = state;
       if (currentState is! PayrollLoaded) emit(PayrollLoading());
@@ -185,7 +184,6 @@ class PayrollDeskBloc extends Bloc<PayrollDeskEvent, PayrollDeskState> {
       }
     });
 
-    // 2. Execute Batch
     on<ExecutePayrollBatch>((event, emit) async {
       try {
         final response = await dioClient.dio.post(
@@ -209,7 +207,6 @@ class PayrollDeskBloc extends Bloc<PayrollDeskEvent, PayrollDeskState> {
       }
     });
 
-    // 3. Fetch Driver Details
     on<FetchDriverPayoutDetails>((event, emit) async {
       final currentState = state;
       if (currentState is PayrollLoaded) {
@@ -238,7 +235,6 @@ class PayrollDeskBloc extends Bloc<PayrollDeskEvent, PayrollDeskState> {
       }
     });
 
-    // 4. Toggle Hold (Refetches driver details in-place without closing sheet)
     on<ToggleEarningHoldStatus>((event, emit) async {
       try {
         await dioClient.dio.put(
@@ -256,7 +252,6 @@ class PayrollDeskBloc extends Bloc<PayrollDeskEvent, PayrollDeskState> {
       }
     });
 
-    // 5. Submit Manual Adjustment
     on<SubmitManualAdjustment>((event, emit) async {
       try {
         await dioClient.dio.post(
@@ -278,7 +273,6 @@ class PayrollDeskBloc extends Bloc<PayrollDeskEvent, PayrollDeskState> {
       }
     });
 
-    // 6. Delete Earning Line Item
     on<DeleteEarningItem>((event, emit) async {
       try {
         await dioClient.dio.delete(
@@ -296,7 +290,6 @@ class PayrollDeskBloc extends Bloc<PayrollDeskEvent, PayrollDeskState> {
       }
     });
 
-    // 7. Clear Details
     on<ClearSelectedDriver>((event, emit) {
       if (state is PayrollLoaded) {
         emit((state as PayrollLoaded).copyWith(clearDetails: true));

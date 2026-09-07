@@ -29,7 +29,6 @@ class DownloadInvoicePdf extends InvoicesEvent {
   List<Object> get props => [invoiceId];
 }
 
-// NEW EVENT: Create Invoice
 class CreateInvoice extends InvoicesEvent {
   final Map<String, dynamic> invoiceData;
   CreateInvoice({required this.invoiceData});
@@ -118,6 +117,7 @@ class InvoicesBloc extends Bloc<InvoicesEvent, InvoicesState> {
                     i.type != InvoiceType.b2cReceipt,
               )
               .fold(0.0, (sum, i) => sum + i.totalAmount);
+
           final overdue = invoices
               .where((i) => i.status == InvoiceStatus.overdue)
               .fold(0.0, (sum, i) => sum + i.totalAmount);

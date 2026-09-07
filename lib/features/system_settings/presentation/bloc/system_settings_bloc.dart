@@ -79,11 +79,11 @@ class SettingsActionSuccess extends SystemSettingsState {
 }
 
 // --- BLOC ---
-class SystemSettingsBloc extends Bloc<SystemSettingsEvent, SystemSettingsState> {
+class SystemSettingsBloc
+    extends Bloc<SystemSettingsEvent, SystemSettingsState> {
   final DioClient dioClient;
 
   SystemSettingsBloc({required this.dioClient}) : super(SettingsLoading()) {
-    
     on<FetchSystemSettings>((event, emit) async {
       emit(SettingsLoading());
       try {
@@ -94,13 +94,20 @@ class SystemSettingsBloc extends Bloc<SystemSettingsEvent, SystemSettingsState> 
 
         if (responses[0].statusCode == 200 && responses[1].statusCode == 200) {
           final config = GlobalSettingsModel.fromJson(responses[0].data);
-          final staff = (responses[1].data as List).map((json) => StaffUserModel.fromJson(json)).toList();
+          final staff = (responses[1].data as List)
+              .map((json) => StaffUserModel.fromJson(json))
+              .toList();
           emit(SettingsLoaded(globalConfig: config, staffList: staff));
         } else {
           emit(SettingsError('Failed to load system settings payload.'));
         }
       } on DioException catch (e) {
-        emit(SettingsError(e.response?.data['message'] ?? 'Network error while connecting to configuration service.'));
+        emit(
+          SettingsError(
+            e.response?.data?['message'] ??
+                'Network error while connecting to configuration service.',
+          ),
+        );
       } catch (e) {
         emit(SettingsError('An unexpected error occurred parsing settings.'));
       }
@@ -108,13 +115,27 @@ class SystemSettingsBloc extends Bloc<SystemSettingsEvent, SystemSettingsState> 
 
     on<UpdateGlobalVariables>((event, emit) async {
       try {
-        final response = await dioClient.dio.put('/api/admin/settings/global', data: event.settings.toJson());
+        final response = await dioClient.dio.put(
+          '/api/admin/settings/global',
+          data: event.settings.toJson(),
+        );
         if (response.statusCode == 200) {
-          emit(SettingsActionSuccess('Global ecosystem variables synchronized and broadcasted successfully.'));
+          emit(
+            SettingsActionSuccess(
+              'Global ecosystem variables synchronized and broadcasted successfully.',
+            ),
+          );
           add(FetchSystemSettings());
         }
       } on DioException catch (e) {
-        emit(SettingsError(e.response?.data['message'] ?? 'Failed to push global variables to server.'));
+        emit(
+          SettingsError(
+            e.response?.data?['message'] ??
+                'Failed to push global variables to server.',
+          ),
+        );
+      } catch (_) {
+        emit(SettingsError('Failed to push global variables to server.'));
       }
     });
 
@@ -125,40 +146,83 @@ class SystemSettingsBloc extends Bloc<SystemSettingsEvent, SystemSettingsState> 
           data: {
             'fullName': event.fullName,
             'email': event.email,
-            'role': event.role == 'Administrator' ? 4 : 3, // Mapping UI string to DB Role Enum
+            'role': event.role == 'Administrator' ? 4 : 3,
             'sendInviteEmail': true,
           },
         );
         if (response.statusCode == 200) {
-          emit(SettingsActionSuccess('Secure invitation token transmitted to ${event.email}.'));
+          emit(
+            SettingsActionSuccess(
+              'Secure invitation token transmitted to ${event.email}.',
+            ),
+          );
           add(FetchSystemSettings());
         }
       } on DioException catch (e) {
-        emit(SettingsError(e.response?.data['message'] ?? 'Failed to invite staff infrastructure member.'));
+        emit(
+          SettingsError(
+            e.response?.data?['message'] ??
+                'Failed to invite staff infrastructure member.',
+          ),
+        );
+      } catch (_) {
+        emit(SettingsError('Failed to invite staff infrastructure member.'));
       }
     });
 
     on<UpdateStaffPermissions>((event, emit) async {
       try {
-        final response = await dioClient.dio.put('/api/admin/staff/${event.staffId}/permissions', data: {'permissions': event.permissions});
+        final response = await dioClient.dio.put(
+          '/api/admin/staff/${event.staffId}/permissions',
+          data: {'permissions': event.permissions},
+        );
         if (response.statusCode == 200) {
-          emit(SettingsActionSuccess('Staff access control privileges locked down.'));
+          emit(
+            SettingsActionSuccess(
+              'Staff access control privileges locked down.',
+            ),
+          );
           add(FetchSystemSettings());
         }
       } on DioException catch (e) {
-        emit(SettingsError(e.response?.data['message'] ?? 'Failed to update staff RBAC privileges.'));
+        emit(
+          SettingsError(
+            e.response?.data?['message'] ??
+                'Failed to update staff RBAC privileges.',
+          ),
+        );
+      } catch (_) {
+        emit(SettingsError('Failed to update staff RBAC privileges.'));
       }
     });
 
     on<ToggleStaffStatus>((event, emit) async {
       try {
-        final response = await dioClient.dio.put('/api/admin/staff/${event.staffId}/status', data: {'isActive': event.isActive});
+        final response = await dioClient.dio.put(
+          '/api/admin/staff/${event.staffId}/status',
+          data: {'isActive': event.isActive},
+        );
         if (response.statusCode == 200) {
-          emit(SettingsActionSuccess(event.isActive ? 'Staff identity node reactivated.' : 'Staff identity node securely suspended.'));
+          emit(
+            SettingsActionSuccess(
+              event.isActive
+                  ? 'Staff identity node reactivated.'
+                  : 'Staff identity node securely suspended.',
+            ),
+          );
           add(FetchSystemSettings());
         }
       } on DioException catch (e) {
-        emit(SettingsError(e.response?.data['message'] ?? 'Failed to toggle operational status of staff member.'));
+        emit(
+          SettingsError(
+            e.response?.data?['message'] ??
+                'Failed to toggle operational status of staff member.',
+          ),
+        );
+      } catch (_) {
+        emit(
+          SettingsError('Failed to toggle operational status of staff member.'),
+        );
       }
     });
   }

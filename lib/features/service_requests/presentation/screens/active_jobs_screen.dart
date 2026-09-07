@@ -1,14 +1,8 @@
-import 'dart:ui';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
 import 'package:responsive_builder/responsive_builder.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:geocoding/geocoding.dart';
-import 'package:geolocator/geolocator.dart';
 import '../../data/models/active_job_model.dart';
 import '../../../../core/di/injection_container.dart';
 import '../bloc/active_jobs_bloc.dart';
@@ -68,8 +62,7 @@ class ActiveJobsScreen extends StatefulWidget {
 
 class _ActiveJobsScreenState extends State<ActiveJobsScreen> {
   String _searchQuery = '';
-  // 0: Pending, 1: In Progress, 2: Completed, 3: Cancelled
-  int _selectedFilterTab = 0;
+  int _selectedFilterTab = -1; // -1 = ALL
   bool _hasAutoOpened = false;
 
   @override
@@ -79,9 +72,7 @@ class _ActiveJobsScreenState extends State<ActiveJobsScreen> {
     return BlocProvider(
       create: (_) => sl<ActiveJobsBloc>()..add(FetchActiveJobs()),
       child: Scaffold(
-        backgroundColor: theme.colorScheme.surfaceContainerHighest.withValues(
-          alpha: 0.3,
-        ),
+        backgroundColor: theme.colorScheme.surface,
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(32.0),
@@ -151,11 +142,12 @@ class _ActiveJobsScreenState extends State<ActiveJobsScreen> {
                         buildWhen: (prev, current) =>
                             current is! JobActionSuccess,
                         builder: (context, state) {
-                          if (state is ActiveJobsLoading)
+                          if (state is ActiveJobsLoading) {
                             return const Center(
                               child: CircularProgressIndicator(),
                             );
-                          if (state is ActiveJobsError)
+                          }
+                          if (state is ActiveJobsError) {
                             return Center(
                               child: Text(
                                 state.message,
@@ -164,6 +156,7 @@ class _ActiveJobsScreenState extends State<ActiveJobsScreen> {
                                 ),
                               ),
                             );
+                          }
 
                           if (state is ActiveJobsLoaded) {
                             final filteredJobs = state.jobs.where((j) {
@@ -175,12 +168,10 @@ class _ActiveJobsScreenState extends State<ActiveJobsScreen> {
                                     _searchQuery,
                                   );
 
-                              bool matchesStatus = false;
+                              bool matchesStatus = true;
                               if (_selectedFilterTab == 0) {
-                                // Pending
                                 matchesStatus = j.status == 0;
                               } else if (_selectedFilterTab == 1) {
-                                // In Progress (Accepted, Arrived, Waiting, Loading, Transit)
                                 matchesStatus = [
                                   1,
                                   2,
@@ -189,11 +180,12 @@ class _ActiveJobsScreenState extends State<ActiveJobsScreen> {
                                   6,
                                 ].contains(j.status);
                               } else if (_selectedFilterTab == 2) {
-                                // Completed
                                 matchesStatus = j.status == 3;
                               } else if (_selectedFilterTab == 3) {
-                                // Cancelled
-                                matchesStatus = j.status == 99;
+                                matchesStatus =
+                                    j.status == 99 ||
+                                    j.status == 100 ||
+                                    j.status == 101;
                               }
 
                               return matchesSearch && matchesStatus;
@@ -285,7 +277,9 @@ class _ActiveJobsScreenState extends State<ActiveJobsScreen> {
                   fillColor: theme.cardColor,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+                    borderSide: BorderSide(
+                      color: theme.dividerColor.withValues(alpha: 0.3),
+                    ),
                   ),
                 ),
                 onChanged: (val) =>
@@ -316,6 +310,7 @@ class _ActiveJobsScreenState extends State<ActiveJobsScreen> {
   Widget _buildStatusFilters(ThemeData theme) {
     return SegmentedButton<int>(
       segments: const [
+        ButtonSegment(value: -1, label: Text('All Jobs')),
         ButtonSegment(value: 0, label: Text('Pending Jobs')),
         ButtonSegment(value: 1, label: Text('In Progress')),
         ButtonSegment(value: 2, label: Text('Completed')),
@@ -334,13 +329,14 @@ class _ActiveJobsScreenState extends State<ActiveJobsScreen> {
     List<FleetDriverModel> fleet,
     ThemeData theme,
   ) {
-    if (jobs.isEmpty)
+    if (jobs.isEmpty) {
       return Center(
         child: Text(
           'No jobs found.',
           style: TextStyle(color: theme.disabledColor),
         ),
       );
+    }
     return Card(
       elevation: 0,
       color: theme.cardColor,
@@ -356,24 +352,42 @@ class _ActiveJobsScreenState extends State<ActiveJobsScreen> {
         ),
         itemBuilder: (ctx, i) {
           final job = jobs[i];
-          return ListTile(
-            contentPadding: const EdgeInsets.symmetric(
+          return ExpansionTile(
+            tilePadding: const EdgeInsets.symmetric(
               horizontal: 24,
-              vertical: 12,
+              vertical: 8,
             ),
             leading: CircleAvatar(
-              backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
-              child: Icon(Icons.local_shipping, color: theme.primaryColor),
-            ),
-            title: Text(
-              job.customerName,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.onSurface,
+              backgroundColor: _getStatusColor(
+                job.status,
+                theme,
+              ).withValues(alpha: 0.1),
+              child: Icon(
+                Icons.local_shipping,
+                color: _getStatusColor(job.status, theme),
               ),
             ),
+            title: Row(
+              children: [
+                Text(
+                  job.customerName,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  '#${job.requestId.substring(0, 8).toUpperCase()}',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
             subtitle: Text(
-              '#${job.requestId.substring(0, 8).toUpperCase()} • ${job.serviceTypeText}',
+              job.serviceTypeText,
               style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
             ),
             trailing: Row(
@@ -398,10 +412,97 @@ class _ActiveJobsScreenState extends State<ActiveJobsScreen> {
                 FilledButton.tonal(
                   onPressed: () =>
                       _showJobDetailsModal(context, job, fleet, theme),
-                  child: const Text('View Details'),
+                  child: const Text('Manage'),
                 ),
               ],
             ),
+            children: [
+              Container(
+                color: theme.colorScheme.surface.withValues(alpha: 0.5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 80,
+                  vertical: 16,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Vehicle Target',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: theme.disabledColor,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          // FIXED: Using vehicleDetails instead of customerVehicleType
+                          Text(
+                            (job.vehicleDetails ?? '').isEmpty
+                                ? 'Not Provided'
+                                : job.vehicleDetails!,
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Hazards / Notes',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: theme.disabledColor,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          // FIXED: Null check added for locationCondition
+                          Text(
+                            (job.locationCondition ?? '').isEmpty
+                                ? 'None'
+                                : job.locationCondition!,
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Total Fare',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: theme.disabledColor,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '\$${job.totalFare.toStringAsFixed(2)}',
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           );
         },
       ),
@@ -482,14 +583,18 @@ class _ActiveJobsScreenState extends State<ActiveJobsScreen> {
         return Colors.blue;
       case 3:
         return Colors.green;
-      default:
+      case 99:
+      case 100:
+      case 101:
         return Colors.red;
+      default:
+        return Colors.grey;
     }
   }
 }
 
 // ============================================================================
-// THE CREATE JOB WIZARD (Simplified English)
+// THE CREATE JOB WIZARD
 // ============================================================================
 class _AdvancedDispatchWizard extends StatefulWidget {
   final List<FleetDriverModel> fleet;
@@ -616,27 +721,6 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
     } finally {
       setState(() => _isSearchingMap = false);
     }
-  }
-
-  Future<void> _getCurrentUserLocation() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) return;
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) return;
-    }
-    if (permission == LocationPermission.deniedForever) return;
-    Position position = await Geolocator.getCurrentPosition();
-    final latLng = LatLng(position.latitude, position.longitude);
-    _mapController?.animateCamera(CameraUpdate.newLatLngZoom(latLng, 16));
-    setState(() {
-      if (_settingPickup) {
-        _pickupLocation = latLng;
-      } else {
-        _dropoffLocation = latLng;
-      }
-    });
   }
 
   @override
@@ -953,7 +1037,7 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
 
   Widget _buildMapStep() {
     Set<Marker> markers = {};
-    if (_pickupLocation != null)
+    if (_pickupLocation != null) {
       markers.add(
         Marker(
           markerId: const MarkerId('pickup'),
@@ -963,7 +1047,8 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
           ),
         ),
       );
-    if (_dropoffLocation != null)
+    }
+    if (_dropoffLocation != null) {
       markers.add(
         Marker(
           markerId: const MarkerId('dropoff'),
@@ -973,6 +1058,7 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
           ),
         ),
       );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1058,7 +1144,6 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // FIXED: Included ALL 10 Service Types in the Wizard
         DropdownButtonFormField<int>(
           key: ValueKey(_serviceType),
           initialValue: _serviceType,
@@ -1071,15 +1156,40 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
           ),
           items: const [
             DropdownMenuItem(value: 1, child: Text('Wheel Lift Towing')),
-            DropdownMenuItem(value: 2, child: Text('Flatbed Towing')),
+            DropdownMenuItem(value: 2, child: Text('Flatbed Carrier')),
             DropdownMenuItem(value: 3, child: Text('Underground/Specialty')),
             DropdownMenuItem(value: 4, child: Text('Heavy Duty Commercial')),
             DropdownMenuItem(value: 5, child: Text('Motorcycle Towing')),
-            DropdownMenuItem(value: 6, child: Text('Jump Start')),
-            DropdownMenuItem(value: 7, child: Text('Flat Tire')),
+            DropdownMenuItem(value: 6, child: Text('Battery Jump Start')),
+            DropdownMenuItem(value: 7, child: Text('Flat Tire Service')),
             DropdownMenuItem(value: 8, child: Text('Lockout Service')),
-            DropdownMenuItem(value: 9, child: Text('Fuel Delivery')),
-            DropdownMenuItem(value: 10, child: Text('Winching / Recovery')),
+            DropdownMenuItem(value: 9, child: Text('Fuel/Fluid Delivery')),
+            DropdownMenuItem(
+              value: 10,
+              child: Text('Winching/Off-Road Recovery'),
+            ),
+            DropdownMenuItem(
+              value: 11,
+              child: Text('Dollies/Locked Wheels Towing'),
+            ),
+            DropdownMenuItem(value: 12, child: Text('EV Mobile Charging')),
+            DropdownMenuItem(
+              value: 13,
+              child: Text('Accident Scene Clearance'),
+            ),
+            DropdownMenuItem(value: 14, child: Text('Tire Inflation/Air Only')),
+            DropdownMenuItem(
+              value: 15,
+              child: Text('Electric Vehicle Flatbed Only'),
+            ),
+            DropdownMenuItem(
+              value: 16,
+              child: Text('Exotic Luxury Enclosed Tow'),
+            ),
+            DropdownMenuItem(
+              value: 17,
+              child: Text('Secondary Highway Escort (Safety Unit)'),
+            ),
           ],
           onChanged: (v) => setState(() => _serviceType = v!),
         ),
@@ -1149,7 +1259,7 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
           items: [
             const DropdownMenuItem<String>(
               value: null,
-              child: Text('Send to all available drivers'),
+              child: Text('Send to all available drivers in radius'),
             ),
             ...widget.fleet.map(
               (d) => DropdownMenuItem(
@@ -1218,25 +1328,15 @@ class _CommandCenterModal extends StatefulWidget {
 class _CommandCenterModalState extends State<_CommandCenterModal>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-
   late int _editStatus;
-
   late TextEditingController _baseCtrl;
-  late TextEditingController _distCtrl;
-  late TextEditingController _waitCtrl;
-  late TextEditingController _surCtrl;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-
     _editStatus = widget.job.status;
-
     _baseCtrl = TextEditingController(text: widget.job.baseFare.toString());
-    _distCtrl = TextEditingController(text: widget.job.distanceFee.toString());
-    _waitCtrl = TextEditingController(text: widget.job.waitPenalty.toString());
-    _surCtrl = TextEditingController(text: widget.job.surcharges.toString());
   }
 
   @override
@@ -1251,7 +1351,9 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
               (j) => j.requestId == widget.job.requestId,
             );
             _editStatus = currentJob.status;
-          } catch (e) {}
+          } catch (e) {
+            // fallback
+          }
         }
 
         return Container(
@@ -1278,7 +1380,7 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
                       Chip(
                         label: Text(
                           currentJob.statusText,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Colors.blue,
                           ),
@@ -1316,8 +1418,13 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
                   children: [
                     _buildLogisticsTab(currentJob),
                     _buildFinancialsTab(currentJob),
-                    const Center(
-                      child: Text("Photos and Extras managed via mobile app."),
+                    Center(
+                      child: Text(
+                        "Photos and Extras managed via mobile app.",
+                        style: TextStyle(
+                          color: widget.theme.colorScheme.onSurface,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -1350,8 +1457,18 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
                 const SizedBox(height: 16),
                 ListTile(
                   leading: const Icon(Icons.person),
-                  title: Text(currentJob.customerName),
-                  subtitle: Text(currentJob.customerPhone),
+                  title: Text(
+                    currentJob.customerName,
+                    style: TextStyle(color: widget.theme.colorScheme.onSurface),
+                  ),
+                  subtitle: Text(
+                    currentJob.customerPhone,
+                    style: TextStyle(
+                      color: widget.theme.colorScheme.onSurface.withValues(
+                        alpha: 0.6,
+                      ),
+                    ),
+                  ),
                   tileColor: widget.theme.cardColor,
                 ),
                 const SizedBox(height: 16),
@@ -1361,8 +1478,16 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
                     currentJob.driverName.isEmpty
                         ? "No Driver Assigned"
                         : currentJob.driverName,
+                    style: TextStyle(color: widget.theme.colorScheme.onSurface),
                   ),
-                  subtitle: Text(currentJob.statusText),
+                  subtitle: Text(
+                    currentJob.statusText,
+                    style: TextStyle(
+                      color: widget.theme.colorScheme.onSurface.withValues(
+                        alpha: 0.6,
+                      ),
+                    ),
+                  ),
                   tileColor: widget.theme.cardColor,
                 ),
                 const SizedBox(height: 32),
@@ -1378,9 +1503,9 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
                 Row(
                   children: [
                     Expanded(
-                      // FIXED: Added Status 4 to prevent assertion crashes
                       child: DropdownButtonFormField<int>(
-                        value: _editStatus,
+                        // FIXED: Replaced deprecated 'value' with 'initialValue'
+                        initialValue: _editStatus,
                         dropdownColor: widget.theme.cardColor,
                         decoration: InputDecoration(
                           labelText: 'Job Status',
@@ -1388,54 +1513,86 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
                           filled: true,
                           fillColor: widget.theme.cardColor,
                         ),
-                        items: const [
+                        items: [
                           DropdownMenuItem(
                             value: 0,
                             child: Text(
-                              'Pending',
-                              style: TextStyle(color: Colors.white),
+                              'Pending Dispatch',
+                              style: TextStyle(
+                                color: widget.theme.colorScheme.onSurface,
+                              ),
                             ),
                           ),
                           DropdownMenuItem(
                             value: 1,
                             child: Text(
                               'Driver Accepted',
-                              style: TextStyle(color: Colors.white),
+                              style: TextStyle(
+                                color: widget.theme.colorScheme.onSurface,
+                              ),
                             ),
                           ),
                           DropdownMenuItem(
                             value: 2,
                             child: Text(
                               'Driver Arrived',
-                              style: TextStyle(color: Colors.white),
+                              style: TextStyle(
+                                color: widget.theme.colorScheme.onSurface,
+                              ),
                             ),
                           ),
                           DropdownMenuItem(
                             value: 4,
                             child: Text(
                               'Waiting on Customer',
-                              style: TextStyle(color: Colors.white),
+                              style: TextStyle(
+                                color: widget.theme.colorScheme.onSurface,
+                              ),
                             ),
                           ),
                           DropdownMenuItem(
                             value: 5,
                             child: Text(
-                              'Loading Car',
-                              style: TextStyle(color: Colors.white),
+                              'Loading Vehicle',
+                              style: TextStyle(
+                                color: widget.theme.colorScheme.onSurface,
+                              ),
                             ),
                           ),
                           DropdownMenuItem(
                             value: 6,
                             child: Text(
-                              'Driving to Dropoff',
-                              style: TextStyle(color: Colors.white),
+                              'In Transit to Dropoff',
+                              style: TextStyle(
+                                color: widget.theme.colorScheme.onSurface,
+                              ),
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 7,
+                            child: Text(
+                              'Unloading Vehicle',
+                              style: TextStyle(
+                                color: widget.theme.colorScheme.onSurface,
+                              ),
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 8,
+                            child: Text(
+                              'Payment Pending',
+                              style: TextStyle(
+                                color: widget.theme.colorScheme.onSurface,
+                              ),
                             ),
                           ),
                           DropdownMenuItem(
                             value: 3,
                             child: Text(
                               'Completed',
-                              style: TextStyle(color: Colors.white),
+                              style: TextStyle(
+                                color: widget.theme.colorScheme.onSurface,
+                              ),
                             ),
                           ),
                           DropdownMenuItem(
@@ -1443,6 +1600,20 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
                             child: Text(
                               'Cancelled',
                               style: TextStyle(color: Colors.red),
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 100,
+                            child: Text(
+                              'Failed PreAuth',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 101,
+                            child: Text(
+                              'Suspended By Admin',
+                              style: TextStyle(color: Colors.orange),
                             ),
                           ),
                         ],
@@ -1475,15 +1646,23 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
     return Column(
       children: [
         ListTile(
-          title: const Text('Total Cost'),
+          title: Text(
+            'Total Cost',
+            style: TextStyle(color: widget.theme.colorScheme.onSurface),
+          ),
           trailing: Text(
             '\$${currentJob.totalFare.toStringAsFixed(2)}',
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: widget.theme.colorScheme.onSurface,
+            ),
           ),
         ),
         const Divider(),
         TextFormField(
           controller: _baseCtrl,
+          style: TextStyle(color: widget.theme.colorScheme.onSurface),
           decoration: const InputDecoration(labelText: 'New Base Price'),
         ),
         const SizedBox(height: 16),

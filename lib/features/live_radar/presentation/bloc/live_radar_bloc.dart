@@ -53,7 +53,8 @@ class PingDriver extends LiveRadarEvent {
 // --- STATES ---
 class LiveRadarState extends Equatable {
   final bool isLoading;
-  final Map<String, Marker> driverMarkers;
+  final Map<String, Marker> onlineDriverMarkers; // Split for offline toggle
+  final Map<String, Marker> offlineDriverMarkers; // Split for offline toggle
   final Map<String, Marker> jobMarkers;
   final Map<String, Circle> historicalCircles;
   final Map<String, Circle> driverHeatmapCircles;
@@ -65,7 +66,8 @@ class LiveRadarState extends Equatable {
 
   const LiveRadarState({
     this.isLoading = true,
-    this.driverMarkers = const {},
+    this.onlineDriverMarkers = const {},
+    this.offlineDriverMarkers = const {},
     this.jobMarkers = const {},
     this.historicalCircles = const {},
     this.driverHeatmapCircles = const {},
@@ -78,7 +80,8 @@ class LiveRadarState extends Equatable {
 
   LiveRadarState copyWith({
     bool? isLoading,
-    Map<String, Marker>? driverMarkers,
+    Map<String, Marker>? onlineDriverMarkers,
+    Map<String, Marker>? offlineDriverMarkers,
     Map<String, Marker>? jobMarkers,
     Map<String, Circle>? historicalCircles,
     Map<String, Circle>? driverHeatmapCircles,
@@ -93,7 +96,8 @@ class LiveRadarState extends Equatable {
   }) {
     return LiveRadarState(
       isLoading: isLoading ?? this.isLoading,
-      driverMarkers: driverMarkers ?? this.driverMarkers,
+      onlineDriverMarkers: onlineDriverMarkers ?? this.onlineDriverMarkers,
+      offlineDriverMarkers: offlineDriverMarkers ?? this.offlineDriverMarkers,
       jobMarkers: jobMarkers ?? this.jobMarkers,
       historicalCircles: historicalCircles ?? this.historicalCircles,
       driverHeatmapCircles: driverHeatmapCircles ?? this.driverHeatmapCircles,
@@ -112,7 +116,8 @@ class LiveRadarState extends Equatable {
   @override
   List<Object?> get props => [
     isLoading,
-    driverMarkers,
+    onlineDriverMarkers,
+    offlineDriverMarkers,
     jobMarkers,
     historicalCircles,
     driverHeatmapCircles,
@@ -134,6 +139,7 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
   BitmapDescriptor? _greenTruck;
   BitmapDescriptor? _redTruck;
   BitmapDescriptor? _orangeTruck;
+  BitmapDescriptor? _greyTruck; // Added for offline drivers
 
   LiveRadarBloc({required this.signalRClient, required this.dioClient})
     : super(const LiveRadarState()) {
@@ -148,8 +154,9 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
         Response? heatRes;
 
         await Future.wait([
+          // FIX: Pointed to the new API returning ALL drivers (online and offline)
           dioClient.dio
-              .get('/api/admin/active-fleet')
+              .get('/api/admin/fleet-radar')
               .then((v) => fleetRes = v)
               .catchError((_) => null),
           dioClient.dio
@@ -162,7 +169,8 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
               .catchError((_) => null),
         ]);
 
-        Map<String, Marker> drivers = {};
+        Map<String, Marker> onlineDrivers = {};
+        Map<String, Marker> offlineDrivers = {};
         Map<String, Circle> driverHeatmap = {};
         Map<String, Marker> activeJobs = {};
         Map<String, Polyline> polylines = {};
@@ -175,18 +183,29 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
                 d['driverId']?.toString() ?? d['DriverId']?.toString() ?? '';
             if (id.isEmpty) continue;
 
-            final lat = _extractCoord(d, 'currentLatitude', 'CurrentLatitude');
-            final lng = _extractCoord(
-              d,
-              'currentLongitude',
-              'CurrentLongitude',
-            );
-            final bool isOnJob = d['isOnJob'] ?? d['IsOnJob'] ?? false;
+            final lat = _extractCoord(d, 'lastLatitude', 'LastLatitude');
+            final lng = _extractCoord(d, 'lastLongitude', 'LastLongitude');
 
-            // Assume idle if not on job and backend flagged it, or default false
+            final bool isOnline = d['isOnline'] ?? d['IsOnline'] ?? false;
+            final bool isOnJob = d['isOnJob'] ?? d['IsOnJob'] ?? false;
             final bool isIdle = d['isIdle'] ?? d['IsIdle'] ?? false;
 
-            drivers[id] = _createDriverMarker(id, lat, lng, isOnJob, isIdle, d);
+            final marker = _createDriverMarker(
+              id,
+              lat,
+              lng,
+              isOnline,
+              isOnJob,
+              isIdle,
+              d,
+            );
+
+            if (isOnline) {
+              onlineDrivers[id] = marker;
+            } else {
+              offlineDrivers[id] = marker;
+            }
+
             driverHeatmap['heat_drv_$id'] = _createDriverHeatmapCircle(
               id,
               lat,
@@ -200,7 +219,6 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
           for (var j in (jobsRes!.data as List)) {
             final jobId = j['requestId']?.toString() ?? 'unknown_id';
 
-            // BULLETPROOF STATUS PARSING: Handles both Ints and Strings safely
             int status = 0;
             var rawStatus = j['status'] ?? j['Status'];
             if (rawStatus != null) {
@@ -232,10 +250,9 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
 
             if (pickLat == 0.0 && pickLng == 0.0) {
               pickLat = 31.9522;
-              pickLng = 35.2332; // Default Center
+              pickLng = 35.2332;
             }
 
-            // Unassigned = Orange (Pending), Assigned = Azure/Blue (En Route/Arrived)
             double hue = (status == 0)
                 ? BitmapDescriptor.hueOrange
                 : BitmapDescriptor.hueAzure;
@@ -247,7 +264,6 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
               j,
             );
 
-            // ONLY draw drop-off if it exists AND is different from pickup
             if (dropLat != 0.0 &&
                 dropLng != 0.0 &&
                 (dropLat != pickLat || dropLng != pickLng)) {
@@ -255,7 +271,6 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
                 markerId: MarkerId('dropoff_$jobId'),
                 position: LatLng(dropLat, dropLng),
                 zIndex: 1,
-                // CHANGED TO MAGENTA: So you never confuse a destination with a Red driver truck!
                 icon: BitmapDescriptor.defaultMarkerWithHue(
                   BitmapDescriptor.hueMagenta,
                 ),
@@ -292,7 +307,8 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
         emit(
           state.copyWith(
             isLoading: false,
-            driverMarkers: drivers,
+            onlineDriverMarkers: onlineDrivers,
+            offlineDriverMarkers: offlineDrivers,
             driverHeatmapCircles: driverHeatmap,
             jobMarkers: activeJobs,
             jobPolylines: polylines,
@@ -346,28 +362,40 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
 
     on<UpdateDriverLocation>((event, emit) {
       if (event.driverId.isEmpty) return;
-      final updatedMarkers = Map<String, Marker>.from(state.driverMarkers);
+
+      final updatedOnlineMarkers = Map<String, Marker>.from(
+        state.onlineDriverMarkers,
+      );
+      final updatedOfflineMarkers = Map<String, Marker>.from(
+        state.offlineDriverMarkers,
+      );
       final updatedHeatmaps = Map<String, Circle>.from(
         state.driverHeatmapCircles,
       );
 
-      // FIX: Explicitly type the map so the compiler doesn't default to <dynamic, dynamic>
       final Map<String, dynamic> existingData = {};
 
-      updatedMarkers[event.driverId] = _createDriverMarker(
+      final newMarker = _createDriverMarker(
         event.driverId,
         event.lat,
         event.lng,
+        true, // SignalR implies they are online
         event.isOnJob,
         false,
         existingData,
       );
+
+      // Move marker to online if it was offline
+      updatedOfflineMarkers.remove(event.driverId);
+      updatedOnlineMarkers[event.driverId] = newMarker;
+
       updatedHeatmaps['heat_drv_${event.driverId}'] =
           _createDriverHeatmapCircle(event.driverId, event.lat, event.lng);
 
       emit(
         state.copyWith(
-          driverMarkers: updatedMarkers,
+          onlineDriverMarkers: updatedOnlineMarkers,
+          offlineDriverMarkers: updatedOfflineMarkers,
           driverHeatmapCircles: updatedHeatmaps,
         ),
       );
@@ -414,8 +442,10 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
       _greenTruck = await _createCustomTruckIcon(Colors.green.shade700);
       _redTruck = await _createCustomTruckIcon(Colors.red.shade700);
       _orangeTruck = await _createCustomTruckIcon(Colors.orange.shade700);
+      _greyTruck = await _createCustomTruckIcon(
+        Colors.grey.shade600,
+      ); // Offline Color
     } catch (e) {
-      // Fallback if Canvas rendering fails on specific web platforms
       _greenTruck = BitmapDescriptor.defaultMarkerWithHue(
         BitmapDescriptor.hueGreen,
       );
@@ -425,6 +455,9 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
       _orangeTruck = BitmapDescriptor.defaultMarkerWithHue(
         BitmapDescriptor.hueOrange,
       );
+      _greyTruck = BitmapDescriptor.defaultMarkerWithHue(
+        BitmapDescriptor.hueYellow,
+      );
     }
   }
 
@@ -433,13 +466,11 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
     final Canvas canvas = Canvas(pictureRecorder);
     const double size = 110.0;
 
-    // Outer Glow/Border
     final Paint borderPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill;
     canvas.drawCircle(const Offset(size / 2, size / 2), size / 2, borderPaint);
 
-    // Inner Circle
     final Paint bgPaint = Paint()
       ..color = bgColor
       ..style = PaintingStyle.fill;
@@ -449,7 +480,6 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
       bgPaint,
     );
 
-    // Truck Icon text
     TextPainter textPainter = TextPainter(textDirection: TextDirection.ltr);
     textPainter.text = TextSpan(
       text: String.fromCharCode(Icons.local_shipping.codePoint),
@@ -479,30 +509,36 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
     String id,
     double lat,
     double lng,
+    bool isOnline,
     bool isOnJob,
     bool isIdle,
     Map<String, dynamic> rawData,
   ) {
     BitmapDescriptor icon;
-    if (isOnJob)
+    if (!isOnline) {
+      icon = _greyTruck!;
+    } else if (isOnJob) {
       icon = _redTruck!;
-    else if (isIdle)
+    } else if (isIdle) {
       icon = _orangeTruck!;
-    else
+    } else {
       icon = _greenTruck!;
+    }
 
     return Marker(
       markerId: MarkerId('driver_$id'),
       position: LatLng(lat, lng),
-      zIndex: 5,
+      zIndex: isOnline ? 5 : 2, // Push offline markers below active ones
       icon: icon,
       consumeTapEvents: true,
       onTap: () {
         final data = Map<String, dynamic>.from(rawData);
         data['driverId'] = id;
-        data['calculatedState'] = isOnJob
-            ? 'Active Job'
-            : (isIdle ? 'Idle Warning' : 'Available');
+        data['calculatedState'] = !isOnline
+            ? 'Offline'
+            : (isOnJob
+                  ? 'Active Job'
+                  : (isIdle ? 'Idle Warning' : 'Available'));
         add(SelectDriverIndicator(data));
       },
     );
