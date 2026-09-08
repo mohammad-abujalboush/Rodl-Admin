@@ -22,11 +22,30 @@ class UpdateDriverLocation extends LiveRadarEvent {
   final double lat;
   final double lng;
   final bool isOnJob;
-
   UpdateDriverLocation(this.driverId, this.lat, this.lng, this.isOnJob);
-
   @override
   List<Object> get props => [driverId, lat, lng, isOnJob];
+}
+
+class SyncNewJob extends LiveRadarEvent {
+  final Map<String, dynamic> jobData;
+  SyncNewJob(this.jobData);
+  @override
+  List<Object> get props => [jobData];
+}
+
+class SyncJobUpdate extends LiveRadarEvent {
+  final Map<String, dynamic> jobData;
+  SyncJobUpdate(this.jobData);
+  @override
+  List<Object> get props => [jobData];
+}
+
+class SyncJobCompletion extends LiveRadarEvent {
+  final String jobId;
+  SyncJobCompletion(this.jobId);
+  @override
+  List<Object> get props => [jobId];
 }
 
 class SelectJobIndicator extends LiveRadarEvent {
@@ -53,12 +72,14 @@ class PingDriver extends LiveRadarEvent {
 // --- STATES ---
 class LiveRadarState extends Equatable {
   final bool isLoading;
-  final Map<String, Marker> onlineDriverMarkers; // Split for offline toggle
-  final Map<String, Marker> offlineDriverMarkers; // Split for offline toggle
+  final Map<String, Marker> onlineDriverMarkers;
+  final Map<String, Marker> offlineDriverMarkers;
   final Map<String, Marker> jobMarkers;
   final Map<String, Circle> historicalCircles;
   final Map<String, Circle> driverHeatmapCircles;
   final Map<String, Polyline> jobPolylines;
+  final Map<String, Map<String, dynamic>>
+  rawJobData; // Needed for pulsing radar lookups
   final Map<String, dynamic>? selectedJob;
   final Map<String, dynamic>? selectedDriver;
   final String? error;
@@ -72,6 +93,7 @@ class LiveRadarState extends Equatable {
     this.historicalCircles = const {},
     this.driverHeatmapCircles = const {},
     this.jobPolylines = const {},
+    this.rawJobData = const {},
     this.selectedJob,
     this.selectedDriver,
     this.error,
@@ -86,6 +108,7 @@ class LiveRadarState extends Equatable {
     Map<String, Circle>? historicalCircles,
     Map<String, Circle>? driverHeatmapCircles,
     Map<String, Polyline>? jobPolylines,
+    Map<String, Map<String, dynamic>>? rawJobData,
     Map<String, dynamic>? selectedJob,
     Map<String, dynamic>? selectedDriver,
     String? error,
@@ -102,6 +125,7 @@ class LiveRadarState extends Equatable {
       historicalCircles: historicalCircles ?? this.historicalCircles,
       driverHeatmapCircles: driverHeatmapCircles ?? this.driverHeatmapCircles,
       jobPolylines: jobPolylines ?? this.jobPolylines,
+      rawJobData: rawJobData ?? this.rawJobData,
       selectedJob: clearSelectedJob ? null : (selectedJob ?? this.selectedJob),
       selectedDriver: clearSelectedDriver
           ? null
@@ -122,6 +146,7 @@ class LiveRadarState extends Equatable {
     historicalCircles,
     driverHeatmapCircles,
     jobPolylines,
+    rawJobData,
     selectedJob,
     selectedDriver,
     error,
@@ -133,13 +158,16 @@ class LiveRadarState extends Equatable {
 class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
   final SignalRClient signalRClient;
   final DioClient dioClient;
-  StreamSubscription? _locationSub;
 
-  // Cached Custom Truck Icons
+  StreamSubscription? _locSub;
+  StreamSubscription? _newJobSub;
+  StreamSubscription? _updJobSub;
+  StreamSubscription? _compJobSub;
+
   BitmapDescriptor? _greenTruck;
   BitmapDescriptor? _redTruck;
   BitmapDescriptor? _orangeTruck;
-  BitmapDescriptor? _greyTruck; // Added for offline drivers
+  BitmapDescriptor? _greyTruck;
 
   LiveRadarBloc({required this.signalRClient, required this.dioClient})
     : super(const LiveRadarState()) {
@@ -148,13 +176,11 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
 
       try {
         await _cacheTruckIcons();
-
         Response? fleetRes;
         Response? jobsRes;
         Response? heatRes;
 
         await Future.wait([
-          // FIX: Pointed to the new API returning ALL drivers (online and offline)
           dioClient.dio
               .get('/api/admin/fleet-radar')
               .then((v) => fleetRes = v)
@@ -175,17 +201,15 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
         Map<String, Marker> activeJobs = {};
         Map<String, Polyline> polylines = {};
         Map<String, Circle> history = {};
+        Map<String, Map<String, dynamic>> rawJobs = {};
 
-        // 1. Process Live Fleet (Drivers)
         if (fleetRes != null && fleetRes!.statusCode == 200) {
           for (var d in (fleetRes!.data as List)) {
             final id =
                 d['driverId']?.toString() ?? d['DriverId']?.toString() ?? '';
             if (id.isEmpty) continue;
-
             final lat = _extractCoord(d, 'lastLatitude', 'LastLatitude');
             final lng = _extractCoord(d, 'lastLongitude', 'LastLongitude');
-
             final bool isOnline = d['isOnline'] ?? d['IsOnline'] ?? false;
             final bool isOnJob = d['isOnJob'] ?? d['IsOnJob'] ?? false;
             final bool isIdle = d['isIdle'] ?? d['IsIdle'] ?? false;
@@ -199,13 +223,10 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
               isIdle,
               d,
             );
-
-            if (isOnline) {
+            if (isOnline)
               onlineDrivers[id] = marker;
-            } else {
+            else
               offlineDrivers[id] = marker;
-            }
-
             driverHeatmap['heat_drv_$id'] = _createDriverHeatmapCircle(
               id,
               lat,
@@ -214,19 +235,14 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
           }
         }
 
-        // 2. Process Active Jobs & Routes
         if (jobsRes != null && jobsRes!.statusCode == 200) {
           for (var j in (jobsRes!.data as List)) {
             final jobId = j['requestId']?.toString() ?? 'unknown_id';
+            rawJobs[jobId] = j;
 
-            int status = 0;
-            var rawStatus = j['status'] ?? j['Status'];
-            if (rawStatus != null) {
-              status = (rawStatus is int)
-                  ? rawStatus
-                  : int.tryParse(rawStatus.toString()) ?? 0;
-            }
-
+            int status =
+                int.tryParse((j['status'] ?? j['Status'] ?? '0').toString()) ??
+                0;
             double pickLat = _extractCoord(
               j,
               'pickupLatitude',
@@ -276,7 +292,6 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
                 ),
                 consumeTapEvents: false,
               );
-
               polylines['path_$jobId'] = Polyline(
                 polylineId: PolylineId('path_$jobId'),
                 points: [LatLng(pickLat, pickLng), LatLng(dropLat, dropLng)],
@@ -290,7 +305,6 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
           }
         }
 
-        // 3. Process Heatmap (Background Circles)
         if (heatRes != null && heatRes!.statusCode == 200) {
           for (var h in (heatRes!.data as List)) {
             final id =
@@ -313,20 +327,30 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
             jobMarkers: activeJobs,
             jobPolylines: polylines,
             historicalCircles: history,
+            rawJobData: rawJobs,
           ),
         );
 
-        // 4. Listen to SignalR Stream
-        _locationSub ??= signalRClient.onDriverLocationUpdate.listen((data) {
-          add(
+        // SignalR Hooks
+        _locSub ??= signalRClient.onDriverLocationUpdate.listen(
+          (data) => add(
             UpdateDriverLocation(
               data['DriverId']?.toString() ?? '',
               _extractCoord(data, 'Latitude', 'lat'),
               _extractCoord(data, 'Longitude', 'lng'),
               data['IsOnJob'] ?? false,
             ),
-          );
-        });
+          ),
+        );
+        _newJobSub ??= signalRClient.onNewJob.listen(
+          (data) => add(SyncNewJob(data)),
+        );
+        _updJobSub ??= signalRClient.onJobUpdated.listen(
+          (data) => add(SyncJobUpdate(data)),
+        );
+        _compJobSub ??= signalRClient.onJobCompleted.listen(
+          (id) => add(SyncJobCompletion(id)),
+        );
       } catch (e) {
         emit(
           state.copyWith(
@@ -335,6 +359,135 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
           ),
         );
       }
+    });
+
+    on<SyncNewJob>((event, emit) {
+      final jobId =
+          event.jobData['requestId']?.toString() ??
+          event.jobData['RequestId']?.toString() ??
+          '';
+      if (jobId.isEmpty) return;
+
+      final updatedJobs = Map<String, Marker>.from(state.jobMarkers);
+      final updatedRaw = Map<String, Map<String, dynamic>>.from(
+        state.rawJobData,
+      );
+
+      double pickLat = _extractCoord(
+        event.jobData,
+        'pickupLatitude',
+        'PickupLatitude',
+      );
+      double pickLng = _extractCoord(
+        event.jobData,
+        'pickupLongitude',
+        'PickupLongitude',
+      );
+
+      updatedRaw[jobId] = event.jobData;
+      updatedRaw[jobId]?['status'] = 0; // Force pending status
+
+      updatedJobs['pickup_$jobId'] = _createJobMarker(
+        'pickup_$jobId',
+        pickLat,
+        pickLng,
+        BitmapDescriptor.hueOrange,
+        updatedRaw[jobId]!,
+      );
+      emit(state.copyWith(jobMarkers: updatedJobs, rawJobData: updatedRaw));
+    });
+
+    on<SyncJobUpdate>((event, emit) {
+      final jobId =
+          event.jobData['requestId']?.toString() ??
+          event.jobData['RequestId']?.toString() ??
+          '';
+      if (jobId.isEmpty) return;
+
+      final updatedJobs = Map<String, Marker>.from(state.jobMarkers);
+      final updatedRaw = Map<String, Map<String, dynamic>>.from(
+        state.rawJobData,
+      );
+
+      // Preserve existing data and merge updates
+      final existingJob = updatedRaw[jobId] ?? {};
+      existingJob.addAll(event.jobData);
+      updatedRaw[jobId] = existingJob;
+
+      double pickLat = _extractCoord(
+        existingJob,
+        'pickupLatitude',
+        'PickupLatitude',
+      );
+      double pickLng = _extractCoord(
+        existingJob,
+        'pickupLongitude',
+        'PickupLongitude',
+      );
+
+      // Update Hue to Azure because it is now actively assigned
+      updatedJobs['pickup_$jobId'] = _createJobMarker(
+        'pickup_$jobId',
+        pickLat,
+        pickLng,
+        BitmapDescriptor.hueAzure,
+        existingJob,
+      );
+      emit(state.copyWith(jobMarkers: updatedJobs, rawJobData: updatedRaw));
+    });
+
+    on<SyncJobCompletion>((event, emit) {
+      final updatedJobs = Map<String, Marker>.from(state.jobMarkers);
+      final updatedPolylines = Map<String, Polyline>.from(state.jobPolylines);
+      final updatedRaw = Map<String, Map<String, dynamic>>.from(
+        state.rawJobData,
+      );
+
+      updatedJobs.remove('pickup_${event.jobId}');
+      updatedJobs.remove('dropoff_${event.jobId}');
+      updatedPolylines.remove('path_${event.jobId}');
+      updatedRaw.remove(event.jobId);
+
+      emit(
+        state.copyWith(
+          jobMarkers: updatedJobs,
+          jobPolylines: updatedPolylines,
+          rawJobData: updatedRaw,
+        ),
+      );
+    });
+
+    on<UpdateDriverLocation>((event, emit) {
+      if (event.driverId.isEmpty) return;
+      final updatedOnline = Map<String, Marker>.from(state.onlineDriverMarkers);
+      final updatedOffline = Map<String, Marker>.from(
+        state.offlineDriverMarkers,
+      );
+      final updatedHeatmaps = Map<String, Circle>.from(
+        state.driverHeatmapCircles,
+      );
+
+      final newMarker = _createDriverMarker(
+        event.driverId,
+        event.lat,
+        event.lng,
+        true,
+        event.isOnJob,
+        false,
+        {},
+      );
+      updatedOffline.remove(event.driverId);
+      updatedOnline[event.driverId] = newMarker;
+      updatedHeatmaps['heat_drv_${event.driverId}'] =
+          _createDriverHeatmapCircle(event.driverId, event.lat, event.lng);
+
+      emit(
+        state.copyWith(
+          onlineDriverMarkers: updatedOnline,
+          offlineDriverMarkers: updatedOffline,
+          driverHeatmapCircles: updatedHeatmaps,
+        ),
+      );
     });
 
     on<PingDriver>((event, emit) async {
@@ -346,8 +499,6 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
             clearMessages: false,
           ),
         );
-        await Future.delayed(const Duration(seconds: 2));
-        emit(state.copyWith(clearMessages: true));
       } catch (e) {
         emit(
           state.copyWith(
@@ -355,77 +506,30 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
             clearMessages: false,
           ),
         );
-        await Future.delayed(const Duration(seconds: 2));
-        emit(state.copyWith(clearMessages: true));
       }
+      await Future.delayed(const Duration(seconds: 2));
+      emit(state.copyWith(clearMessages: true));
     });
 
-    on<UpdateDriverLocation>((event, emit) {
-      if (event.driverId.isEmpty) return;
-
-      final updatedOnlineMarkers = Map<String, Marker>.from(
-        state.onlineDriverMarkers,
-      );
-      final updatedOfflineMarkers = Map<String, Marker>.from(
-        state.offlineDriverMarkers,
-      );
-      final updatedHeatmaps = Map<String, Circle>.from(
-        state.driverHeatmapCircles,
-      );
-
-      final Map<String, dynamic> existingData = {};
-
-      final newMarker = _createDriverMarker(
-        event.driverId,
-        event.lat,
-        event.lng,
-        true, // SignalR implies they are online
-        event.isOnJob,
-        false,
-        existingData,
-      );
-
-      // Move marker to online if it was offline
-      updatedOfflineMarkers.remove(event.driverId);
-      updatedOnlineMarkers[event.driverId] = newMarker;
-
-      updatedHeatmaps['heat_drv_${event.driverId}'] =
-          _createDriverHeatmapCircle(event.driverId, event.lat, event.lng);
-
-      emit(
+    on<SelectJobIndicator>(
+      (event, emit) => emit(
         state.copyWith(
-          onlineDriverMarkers: updatedOnlineMarkers,
-          offlineDriverMarkers: updatedOfflineMarkers,
-          driverHeatmapCircles: updatedHeatmaps,
+          selectedJob: event.jobData,
+          clearSelectedDriver: true,
+          clearSelectedJob: event.jobData == null,
         ),
-      );
-    });
-
-    on<SelectJobIndicator>((event, emit) {
-      if (event.jobData == null) {
-        emit(state.copyWith(clearSelectedJob: true));
-      } else {
-        emit(
-          state.copyWith(selectedJob: event.jobData, clearSelectedDriver: true),
-        );
-      }
-    });
-
-    on<SelectDriverIndicator>((event, emit) {
-      if (event.driverData == null) {
-        emit(state.copyWith(clearSelectedDriver: true));
-      } else {
-        emit(
-          state.copyWith(
-            selectedDriver: event.driverData,
-            clearSelectedJob: true,
-          ),
-        );
-      }
-    });
+      ),
+    );
+    on<SelectDriverIndicator>(
+      (event, emit) => emit(
+        state.copyWith(
+          selectedDriver: event.driverData,
+          clearSelectedJob: true,
+          clearSelectedDriver: event.driverData == null,
+        ),
+      ),
+    );
   }
-
-  // --- UI GENERATORS & EXTRACTORS ---
 
   double _extractCoord(Map<String, dynamic> json, String key1, String key2) {
     var val = json[key1] ?? json[key2];
@@ -442,9 +546,7 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
       _greenTruck = await _createCustomTruckIcon(Colors.green.shade700);
       _redTruck = await _createCustomTruckIcon(Colors.red.shade700);
       _orangeTruck = await _createCustomTruckIcon(Colors.orange.shade700);
-      _greyTruck = await _createCustomTruckIcon(
-        Colors.grey.shade600,
-      ); // Offline Color
+      _greyTruck = await _createCustomTruckIcon(Colors.grey.shade600);
     } catch (e) {
       _greenTruck = BitmapDescriptor.defaultMarkerWithHue(
         BitmapDescriptor.hueGreen,
@@ -465,12 +567,10 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
     final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
     final Canvas canvas = Canvas(pictureRecorder);
     const double size = 110.0;
-
     final Paint borderPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill;
     canvas.drawCircle(const Offset(size / 2, size / 2), size / 2, borderPaint);
-
     final Paint bgPaint = Paint()
       ..color = bgColor
       ..style = PaintingStyle.fill;
@@ -479,7 +579,6 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
       (size / 2) - 6,
       bgPaint,
     );
-
     TextPainter textPainter = TextPainter(textDirection: TextDirection.ltr);
     textPainter.text = TextSpan(
       text: String.fromCharCode(Icons.local_shipping.codePoint),
@@ -494,7 +593,6 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
       canvas,
       Offset((size - textPainter.width) / 2, (size - textPainter.height) / 2),
     );
-
     final ui.Image image = await pictureRecorder.endRecording().toImage(
       size.toInt(),
       size.toInt(),
@@ -514,21 +612,13 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
     bool isIdle,
     Map<String, dynamic> rawData,
   ) {
-    BitmapDescriptor icon;
-    if (!isOnline) {
-      icon = _greyTruck!;
-    } else if (isOnJob) {
-      icon = _redTruck!;
-    } else if (isIdle) {
-      icon = _orangeTruck!;
-    } else {
-      icon = _greenTruck!;
-    }
-
+    BitmapDescriptor icon = !isOnline
+        ? _greyTruck!
+        : (isOnJob ? _redTruck! : (isIdle ? _orangeTruck! : _greenTruck!));
     return Marker(
       markerId: MarkerId('driver_$id'),
       position: LatLng(lat, lng),
-      zIndex: isOnline ? 5 : 2, // Push offline markers below active ones
+      zIndex: isOnline ? 5 : 2,
       icon: icon,
       consumeTapEvents: true,
       onTap: () {
@@ -587,7 +677,10 @@ class LiveRadarBloc extends Bloc<LiveRadarEvent, LiveRadarState> {
 
   @override
   Future<void> close() {
-    _locationSub?.cancel();
+    _locSub?.cancel();
+    _newJobSub?.cancel();
+    _updJobSub?.cancel();
+    _compJobSub?.cancel();
     return super.close();
   }
 }

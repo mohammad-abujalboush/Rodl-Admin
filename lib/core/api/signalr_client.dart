@@ -13,11 +13,14 @@ class SignalRClient {
   final _driverLocationController =
       StreamController<Map<String, dynamic>>.broadcast();
   final _newJobController = StreamController<Map<String, dynamic>>.broadcast();
+  final _jobUpdatedController =
+      StreamController<Map<String, dynamic>>.broadcast();
   final _jobCompletedController = StreamController<String>.broadcast();
 
   Stream<Map<String, dynamic>> get onDriverLocationUpdate =>
       _driverLocationController.stream;
   Stream<Map<String, dynamic>> get onNewJob => _newJobController.stream;
+  Stream<Map<String, dynamic>> get onJobUpdated => _jobUpdatedController.stream;
   Stream<String> get onJobCompleted => _jobCompletedController.stream;
 
   SignalRClient(this._secureStorage);
@@ -25,18 +28,17 @@ class SignalRClient {
   Future<void> connect() async {
     final token = await _secureStorage.getToken();
     if (token == null) {
-      if (kDebugMode) print('🔴 [SignalR] Cannot connect: No JWT Token found.');
+      if (kDebugMode) print('🚫 [SignalR] Cannot connect: No JWT Token found.');
       return;
     }
 
-    // Update to match your local .NET port
-    const serverUrl = 'https://localhost:7014/hubs/admin-radar';
+    const serverUrl =
+        'https://rodlapi.mohammad-abujalboush.com/hubs/admin-radar';
 
     _hubConnection = HubConnectionBuilder()
         .withUrl(
           serverUrl,
           options: HttpConnectionOptions(
-            // Ensure the token is passed as a string
             accessTokenFactory: () async =>
                 await _secureStorage.getToken() ?? '',
           ),
@@ -44,28 +46,32 @@ class SignalRClient {
         .withAutomaticReconnect()
         .build();
 
-    // Register listeners for the exact string names we used in the .NET Hub
+    // Mapping to the exact backend broadcast events
     _hubConnection?.on('ReceiveDriverLocation', _handleDriverLocation);
     _hubConnection?.on('ReceiveNewJob', _handleNewJob);
+    _hubConnection?.on('ReceiveJobUpdated', _handleJobUpdated);
+    _hubConnection?.on(
+      'DispatchClaimed',
+      _handleJobUpdated,
+    ); // Drivers claiming a job updates the status
     _hubConnection?.on('JobCompleted', _handleJobCompleted);
 
     try {
       await _hubConnection?.start();
-      if (kDebugMode) print('🟢 [SignalR] Connected to Admin Radar Hub');
+      if (kDebugMode) print('✅ [SignalR] Connected to Admin Radar Hub');
     } catch (e) {
-      if (kDebugMode) print('🔴 [SignalR] Connection Failed: $e');
+      if (kDebugMode) print('🚫 [SignalR] Connection Failed: $e');
     }
   }
 
   Future<void> disconnect() async {
     await _hubConnection?.stop();
-    if (kDebugMode) print('⚪ [SignalR] Disconnected');
+    if (kDebugMode) print('🔌 [SignalR] Disconnected');
   }
 
   // --- HANDLERS ---
   void _handleDriverLocation(List<Object?>? args) {
     if (args != null && args.isNotEmpty) {
-      // The .NET backend sends an anonymous object which signalr_netcore parses as a Map
       final data = args.first as Map<String, dynamic>;
       _driverLocationController.add(data);
     }
@@ -75,6 +81,13 @@ class SignalRClient {
     if (args != null && args.isNotEmpty) {
       final data = args.first as Map<String, dynamic>;
       _newJobController.add(data);
+    }
+  }
+
+  void _handleJobUpdated(List<Object?>? args) {
+    if (args != null && args.isNotEmpty) {
+      final data = args.first as Map<String, dynamic>;
+      _jobUpdatedController.add(data);
     }
   }
 
@@ -88,6 +101,7 @@ class SignalRClient {
   void dispose() {
     _driverLocationController.close();
     _newJobController.close();
+    _jobUpdatedController.close();
     _jobCompletedController.close();
   }
 }

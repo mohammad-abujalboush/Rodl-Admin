@@ -53,7 +53,7 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
           type: type,
           x: 400,
           y: 300,
-          executionMode: 'standard', // Initialize with default
+          executionMode: 'standard',
         ),
       );
     });
@@ -70,8 +70,7 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
     int selectedTruckType = node.dispatchTruckType;
     String selectedCondQuestionId = node.conditionField;
     String selectedCondAnswer = node.conditionValue;
-    String selectedExecutionMode =
-        node.executionMode; // NEW: Track local execution mode
+    String selectedExecutionMode = node.executionMode;
 
     List<TextEditingController> optionCtrls = node.options
         .map((opt) => TextEditingController(text: opt))
@@ -318,8 +317,6 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                         ),
                       ),
                       const SizedBox(height: 12),
-
-                      // --- NEW: EXECUTION MODE DROPDOWN ---
                       DropdownButtonFormField<String>(
                         value: selectedExecutionMode,
                         dropdownColor: theme.cardColor,
@@ -363,7 +360,6 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                             setModalState(() => selectedExecutionMode = v!),
                       ),
                       const SizedBox(height: 16),
-
                       if (activeServices.isEmpty)
                         const Text(
                           '⚠️ No Services Found.',
@@ -553,8 +549,7 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                       node.customSurcharge =
                           double.tryParse(surchargeCtrl.text.trim()) ?? 0.0;
                       node.dispatchNotes = notesCtrl.text.trim();
-                      node.executionMode =
-                          selectedExecutionMode; // NEW: Persist the selected execution behavior
+                      node.executionMode = selectedExecutionMode;
                     }
                   });
                   Navigator.pop(ctx);
@@ -575,6 +570,51 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
       if (selectedNodeId == nodeId) selectedNodeId = null;
       if (linkingFromNodeId == nodeId) linkingFromNodeId = null;
     });
+  }
+
+  // --- NEW: DELETE CONFIRMATION SAFEGUARD ---
+  void _confirmDeleteNode(DispatchNode node) {
+    final theme = Theme.of(context);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Delete Node?',
+          style: TextStyle(
+            color: theme.colorScheme.onSurface,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to delete "${node.title}"? This will automatically sever and remove any connected routing edges.',
+          style: TextStyle(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              _deleteNode(node.id);
+              Navigator.pop(ctx);
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _saveGraph(BuildContext context) {
@@ -1100,14 +1140,13 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                     current is RulesHistoryLoaded || current is RulesLoading,
                 builder: (context, state) {
                   if (state is RulesHistoryLoaded) {
-                    if (state.history.isEmpty) {
+                    if (state.history.isEmpty)
                       return Center(
                         child: Text(
                           'No version records found.',
                           style: TextStyle(color: theme.disabledColor),
                         ),
                       );
-                    }
                     return ListView.separated(
                       padding: const EdgeInsets.all(16),
                       itemCount: state.history.length,
@@ -1205,7 +1244,7 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
       },
       child: Container(
         width: 250,
-        height: 170, // Increased slightly to fit execution mode
+        height: 170,
         decoration: BoxDecoration(
           color: theme.cardColor,
           borderRadius: BorderRadius.circular(16),
@@ -1256,8 +1295,9 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                       ),
                       const SizedBox(width: 8),
                       if (node.id != 'start_node')
+                        // --- HOOKED UP TO SAFEGUARD HERE ---
                         InkWell(
-                          onTap: () => _deleteNode(node.id),
+                          onTap: () => _confirmDeleteNode(node),
                           child: const Icon(
                             Icons.close,
                             size: 18,
@@ -1313,7 +1353,6 @@ class _VisualBuilderViewState extends State<_VisualBuilderView> {
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
-                      // --- Display Execution Mode on Card ---
                       Text(
                         'Mode: ${node.executionMode.toUpperCase()}',
                         style: TextStyle(

@@ -86,15 +86,12 @@ class _PricingEngineScreenState extends State<PricingEngineScreen> {
                     buildWhen: (prev, current) =>
                         current is PricingLoaded || current is PricingLoading,
                     builder: (context, state) {
-                      if (state is PricingLoading) {
+                      if (state is PricingLoading)
                         return const Center(child: CircularProgressIndicator());
-                      }
+
                       if (state is PricingLoaded) {
                         final filteredRules = state.rules.where((r) {
                           return r.ruleName.toLowerCase().contains(
-                                _searchQuery,
-                              ) ||
-                              r.serviceTypeName.toLowerCase().contains(
                                 _searchQuery,
                               ) ||
                               r.description.toLowerCase().contains(
@@ -159,7 +156,7 @@ class _PricingEngineScreenState extends State<PricingEngineScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Configure base hookup rates, distance brackets, wait penalties, and multi-truck surcharges.',
+          'Configure base hookup rates, in-zone/out-of-zone distance brackets, wait penalties, and multi-truck surcharges.',
           style: TextStyle(
             color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
             fontSize: 16,
@@ -174,6 +171,11 @@ class _PricingEngineScreenState extends State<PricingEngineScreen> {
     ThemeData theme,
     BuildContext blocContext,
   ) {
+    // Determine the service type name directly from the local map to ensure 1-17 coverage
+    final serviceName =
+        _PricingWizardFormState.allServiceTypes[rule.serviceType] ??
+        'Custom Service';
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -203,7 +205,7 @@ class _PricingEngineScreenState extends State<PricingEngineScreen> {
                 ),
                 Chip(
                   label: Text(
-                    rule.serviceTypeName,
+                    serviceName,
                     style: TextStyle(
                       color: theme.primaryColor,
                       fontSize: 10,
@@ -263,7 +265,7 @@ class _PricingEngineScreenState extends State<PricingEngineScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Distance Rate',
+                      'Distance Rates',
                       style: TextStyle(
                         color: theme.colorScheme.onSurface.withValues(
                           alpha: 0.5,
@@ -272,11 +274,11 @@ class _PricingEngineScreenState extends State<PricingEngineScreen> {
                       ),
                     ),
                     Text(
-                      '\$${rule.ratePerKm.toStringAsFixed(2)} /km',
+                      'In: \$${rule.ratePerKm.toStringAsFixed(2)} | Out: \$${rule.outOfZoneRatePerKm.toStringAsFixed(2)}',
                       style: TextStyle(
                         color: theme.colorScheme.onSurface,
                         fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                        fontSize: 13,
                       ),
                     ),
                   ],
@@ -343,6 +345,7 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
   final _baseFareCtrl = TextEditingController();
   final _incDistCtrl = TextEditingController();
   final _rateKmCtrl = TextEditingController();
+  final _outOfZoneRateKmCtrl = TextEditingController(); // NEW CONTROLLER
 
   final _recBaseCtrl = TextEditingController();
   final _recIncMinCtrl = TextEditingController();
@@ -356,8 +359,8 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
   final _duallyCtrl = TextEditingController();
   final _multiTruckCtrl = TextEditingController();
 
-  // The 17 backend service types mapping
-  final Map<int, String> _allServiceTypes = const {
+  // Universally Accessible Service Definitions (1 to 17)
+  static const Map<int, String> allServiceTypes = {
     1: 'Wheel Lift Towing',
     2: 'Flatbed Carrier',
     3: 'Underground / Specialty Tow',
@@ -386,13 +389,14 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
       final r = widget.existingRule!;
       _nameCtrl.text = r.ruleName;
       _descCtrl.text = r.description;
-      _serviceType = _allServiceTypes.containsKey(r.serviceType)
+      _serviceType = allServiceTypes.containsKey(r.serviceType)
           ? r.serviceType
           : 1;
 
       _baseFareCtrl.text = r.baseFare.toString();
       _incDistCtrl.text = r.includedDistanceKm.toString();
       _rateKmCtrl.text = r.ratePerKm.toString();
+      _outOfZoneRateKmCtrl.text = r.outOfZoneRatePerKm.toString();
 
       _recBaseCtrl.text = r.recoveryBaseRate.toString();
       _recIncMinCtrl.text = r.recoveryIncludedMinutes.toString();
@@ -406,9 +410,11 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
       _duallyCtrl.text = r.duallySurcharge?.toString() ?? '';
       _multiTruckCtrl.text = r.multiTruckSurcharge?.toString() ?? '';
     } else {
+      // Defaults for a rapid UI experience
       _baseFareCtrl.text = '75.00';
       _incDistCtrl.text = '5.0';
       _rateKmCtrl.text = '3.50';
+      _outOfZoneRateKmCtrl.text = '6.00';
       _recBaseCtrl.text = '50.00';
       _recIncMinCtrl.text = '15';
       _recRateMinCtrl.text = '2.00';
@@ -426,6 +432,7 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
     _baseFareCtrl.dispose();
     _incDistCtrl.dispose();
     _rateKmCtrl.dispose();
+    _outOfZoneRateKmCtrl.dispose();
     _recBaseCtrl.dispose();
     _recIncMinCtrl.dispose();
     _recRateMinCtrl.dispose();
@@ -437,6 +444,44 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
     _duallyCtrl.dispose();
     _multiTruckCtrl.dispose();
     super.dispose();
+  }
+
+  void _confirmDelete() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Delete Pricing Rule?',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          'This action will instantly decouple this pricing matrix from active dispatches and cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              widget.bloc.add(DeletePricingRule(widget.existingRule!.id));
+              Navigator.pop(ctx); // Close Dialog
+              Navigator.pop(context); // Close Wizard
+            },
+            child: const Text(
+              'Confirm Deletion',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -503,7 +548,7 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
                       fillColor: theme.cardColor,
                       border: const OutlineInputBorder(),
                     ),
-                    items: _allServiceTypes.entries.map((entry) {
+                    items: allServiceTypes.entries.map((entry) {
                       return DropdownMenuItem<int>(
                         value: entry.key,
                         child: Text(
@@ -563,12 +608,8 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
               children: [
                 if (!widget.isNew)
                   TextButton.icon(
-                    onPressed: () {
-                      widget.bloc.add(
-                        DeletePricingRule(widget.existingRule!.id),
-                      );
-                      Navigator.pop(context);
-                    },
+                    onPressed:
+                        _confirmDelete, // Triggers Safe Delete Confirmation
                     icon: const Icon(
                       Icons.delete_forever,
                       color: Colors.redAccent,
@@ -627,11 +668,17 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
           isRequired: true,
         ),
         _buildCurrencyInput(
-          'Rate per Excess Kilometer (\$ / km)',
+          'Standard Rate per Excess Kilometer (\$ / km)',
           _rateKmCtrl,
           theme,
           isRequired: true,
         ),
+        _buildCurrencyInput(
+          'Out of Zone Surcharge Rate (\$ / km)',
+          _outOfZoneRateKmCtrl,
+          theme,
+          isRequired: true,
+        ), // THE NEW METRIC
         _buildCurrencyInput(
           'Cancellation Penalty Fee (\$)',
           _cancelFeeCtrl,
@@ -782,6 +829,8 @@ class _PricingWizardFormState extends State<_PricingWizardForm>
         baseFare: double.tryParse(_baseFareCtrl.text.trim()) ?? 0.0,
         includedDistanceKm: double.tryParse(_incDistCtrl.text.trim()) ?? 0.0,
         ratePerKm: double.tryParse(_rateKmCtrl.text.trim()) ?? 0.0,
+        outOfZoneRatePerKm:
+            double.tryParse(_outOfZoneRateKmCtrl.text.trim()) ?? 0.0,
         hourlyRate: 0.0,
         recoveryBaseRate: double.tryParse(_recBaseCtrl.text.trim()) ?? 0.0,
         recoveryIncludedMinutes: int.tryParse(_recIncMinCtrl.text.trim()) ?? 0,

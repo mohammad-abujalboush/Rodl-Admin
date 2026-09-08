@@ -100,7 +100,7 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.surface, // Light theme compliant
+      backgroundColor: theme.scaffoldBackgroundColor, // Light theme compliant
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(32.0),
@@ -159,7 +159,10 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
         ),
         FilledButton.icon(
           icon: const Icon(Icons.refresh),
-          label: const Text('Refresh'),
+          label: const Text(
+            'Refresh',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           style: FilledButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             shape: RoundedRectangleBorder(
@@ -186,6 +189,7 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
         SizedBox(
           width: 300,
           child: TextField(
+            style: TextStyle(color: theme.colorScheme.onSurface),
             decoration: InputDecoration(
               hintText: 'Search Job ID, Action, or Payload...',
               prefixIcon: const Icon(Icons.search),
@@ -225,6 +229,7 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
           child: DropdownButtonFormField<String>(
             value: _selectedAction,
             dropdownColor: theme.cardColor,
+            style: TextStyle(color: theme.colorScheme.onSurface),
             decoration: InputDecoration(
               filled: true,
               fillColor: theme.cardColor,
@@ -241,13 +246,8 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
             ),
             items: _actionTypes
                 .map(
-                  (action) => DropdownMenuItem(
-                    value: action,
-                    child: Text(
-                      action,
-                      style: TextStyle(color: theme.colorScheme.onSurface),
-                    ),
-                  ),
+                  (action) =>
+                      DropdownMenuItem(value: action, child: Text(action)),
                 )
                 .toList(),
             onChanged: (val) {
@@ -314,7 +314,6 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
       color: theme.cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        // FIX: Corrected Border.all() to BorderSide()
         side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.3)),
       ),
       clipBehavior: Clip.antiAlias,
@@ -478,7 +477,6 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            // FIX: Corrected Border.all() to BorderSide()
             side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.3)),
           ),
           child: ListTile(
@@ -527,7 +525,10 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
         backgroundColor: theme.cardColor,
         title: Text(
           'Audit Payload',
-          style: TextStyle(color: theme.colorScheme.onSurface),
+          style: TextStyle(
+            color: theme.colorScheme.onSurface,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         content: Container(
           width: 500,
@@ -542,7 +543,11 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
           child: SingleChildScrollView(
             child: SelectableText(
               payload,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 13,
+                color: theme.colorScheme.onSurface,
+              ),
             ),
           ),
         ),

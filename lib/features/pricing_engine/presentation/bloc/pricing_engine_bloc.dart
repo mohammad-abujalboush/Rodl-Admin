@@ -91,7 +91,7 @@ class PricingEngineBloc extends Bloc<PricingEngineEvent, PricingEngineState> {
           emit(PricingActionSuccess('New Pricing Matrix compiled and stored.'));
         } else {
           await dioClient.dio.put(
-            '/api/admin/pricing-rules/${event.rule.serviceType}',
+            '/api/admin/pricing-rules/${event.rule.id}',
             data: event.rule.toJson(),
           );
           emit(PricingActionSuccess('Pricing Matrix successfully updated.'));

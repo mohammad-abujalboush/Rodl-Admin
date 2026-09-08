@@ -14,11 +14,14 @@ class LiveRadarScreen extends StatefulWidget {
   State<LiveRadarScreen> createState() => _LiveRadarScreenState();
 }
 
-class _LiveRadarScreenState extends State<LiveRadarScreen> {
+class _LiveRadarScreenState extends State<LiveRadarScreen>
+    with TickerProviderStateMixin {
   GoogleMapController? _mapController;
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
 
   static bool _showDrivers = true;
-  static bool _showOfflineDrivers = false; // NEW TOGGLE
+  static bool _showOfflineDrivers = false;
   static bool _showActiveJobs = true;
   static bool _showHistoricalHeatmap = false;
   static bool _showDriverHeatmap = false;
@@ -27,6 +30,26 @@ class _LiveRadarScreenState extends State<LiveRadarScreen> {
     target: LatLng(31.9454, 35.9284),
     zoom: 12.0,
   );
+
+  @override
+  void initState() {
+    super.initState();
+    // 5000 meters matches the Tier 1 search radius in the backend
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat();
+    _pulseAnimation = Tween<double>(
+      begin: 0,
+      end: 5000,
+    ).animate(CurvedAnimation(parent: _pulseController, curve: Curves.easeOut));
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +68,7 @@ class _LiveRadarScreenState extends State<LiveRadarScreen> {
                   flex: 3,
                   child: Stack(
                     children: [
-                      // --- THE MAP LAYER ---
+                      // --- THE MAP LAYER WITH REAL-TIME PULSE ANIMATION ---
                       BlocConsumer<LiveRadarBloc, LiveRadarState>(
                         listener: (context, state) {
                           if (state.successMessage != null) {
@@ -66,56 +89,106 @@ class _LiveRadarScreenState extends State<LiveRadarScreen> {
                           }
                         },
                         builder: (context, state) {
-                          Set<Marker> displayMarkers = {};
-                          Set<Circle> displayCircles = {};
+                          return AnimatedBuilder(
+                            animation: _pulseAnimation,
+                            builder: (context, child) {
+                              Set<Marker> displayMarkers = {};
+                              Set<Circle> displayCircles = {};
 
-                          // Add Online Drivers
-                          if (_showDrivers) {
-                            displayMarkers.addAll(
-                              state.onlineDriverMarkers.values,
-                            );
-                          }
-                          // Add Offline Drivers
-                          if (_showOfflineDrivers) {
-                            displayMarkers.addAll(
-                              state.offlineDriverMarkers.values,
-                            );
-                          }
-                          // Add Jobs
-                          if (_showActiveJobs) {
-                            displayMarkers.addAll(state.jobMarkers.values);
-                          }
+                              if (_showDrivers)
+                                displayMarkers.addAll(
+                                  state.onlineDriverMarkers.values,
+                                );
+                              if (_showOfflineDrivers)
+                                displayMarkers.addAll(
+                                  state.offlineDriverMarkers.values,
+                                );
+                              if (_showActiveJobs)
+                                displayMarkers.addAll(state.jobMarkers.values);
+                              if (_showHistoricalHeatmap)
+                                displayCircles.addAll(
+                                  state.historicalCircles.values,
+                                );
+                              if (_showDriverHeatmap)
+                                displayCircles.addAll(
+                                  state.driverHeatmapCircles.values,
+                                );
 
-                          if (_showHistoricalHeatmap) {
-                            displayCircles.addAll(
-                              state.historicalCircles.values,
-                            );
-                          }
-                          if (_showDriverHeatmap) {
-                            displayCircles.addAll(
-                              state.driverHeatmapCircles.values,
-                            );
-                          }
+                              // LIVE RADAR PULSE FOR UNASSIGNED JOBS
+                              if (_showActiveJobs) {
+                                state.rawJobData.forEach((jobId, rawData) {
+                                  int status =
+                                      int.tryParse(
+                                        (rawData['status'] ??
+                                                rawData['Status'] ??
+                                                '0')
+                                            .toString(),
+                                      ) ??
+                                      0;
+                                  if (status == 0) {
+                                    // Pending/Searching
+                                    double pickLat =
+                                        double.tryParse(
+                                          (rawData['pickupLatitude'] ??
+                                                  rawData['PickupLatitude'] ??
+                                                  '0')
+                                              .toString(),
+                                        ) ??
+                                        0.0;
+                                    double pickLng =
+                                        double.tryParse(
+                                          (rawData['pickupLongitude'] ??
+                                                  rawData['PickupLongitude'] ??
+                                                  '0')
+                                              .toString(),
+                                        ) ??
+                                        0.0;
+                                    if (pickLat != 0.0 && pickLng != 0.0) {
+                                      double opacity =
+                                          (1.0 - (_pulseAnimation.value / 5000))
+                                              .clamp(0.0, 1.0);
+                                      displayCircles.add(
+                                        Circle(
+                                          circleId: CircleId('pulse_$jobId'),
+                                          center: LatLng(pickLat, pickLng),
+                                          radius: _pulseAnimation.value,
+                                          fillColor: Colors.orange.withOpacity(
+                                            opacity * 0.4,
+                                          ),
+                                          strokeWidth: 2,
+                                          strokeColor: Colors.orange
+                                              .withOpacity(opacity),
+                                          consumeTapEvents: false,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                });
+                              }
 
-                          return GoogleMap(
-                            initialCameraPosition: _initialPosition,
-                            myLocationEnabled: false,
-                            myLocationButtonEnabled: false,
-                            zoomControlsEnabled: !isDesktop,
-                            mapType: MapType.normal,
-                            markers: displayMarkers,
-                            polylines: _showActiveJobs
-                                ? Set<Polyline>.of(state.jobPolylines.values)
-                                : {},
-                            circles: displayCircles,
-                            onMapCreated: (controller) =>
-                                _mapController = controller,
-                            onTap: (_) {
-                              context.read<LiveRadarBloc>().add(
-                                SelectJobIndicator(null),
-                              );
-                              context.read<LiveRadarBloc>().add(
-                                SelectDriverIndicator(null),
+                              return GoogleMap(
+                                initialCameraPosition: _initialPosition,
+                                myLocationEnabled: false,
+                                myLocationButtonEnabled: false,
+                                zoomControlsEnabled: !isDesktop,
+                                mapType: MapType.normal,
+                                markers: displayMarkers,
+                                polylines: _showActiveJobs
+                                    ? Set<Polyline>.of(
+                                        state.jobPolylines.values,
+                                      )
+                                    : {},
+                                circles: displayCircles,
+                                onMapCreated: (controller) =>
+                                    _mapController = controller,
+                                onTap: (_) {
+                                  context.read<LiveRadarBloc>().add(
+                                    SelectJobIndicator(null),
+                                  );
+                                  context.read<LiveRadarBloc>().add(
+                                    SelectDriverIndicator(null),
+                                  );
+                                },
                               );
                             },
                           );
@@ -195,7 +268,6 @@ class _LiveRadarScreenState extends State<LiveRadarScreen> {
 
                           return Stack(
                             children: [
-                              // JOB OVERLAY
                               AnimatedPositioned(
                                 duration: const Duration(milliseconds: 350),
                                 curve: Curves.easeOutCubic,
@@ -227,7 +299,6 @@ class _LiveRadarScreenState extends State<LiveRadarScreen> {
                                       : const SizedBox.shrink(),
                                 ),
                               ),
-                              // DRIVER OVERLAY
                               AnimatedPositioned(
                                 duration: const Duration(milliseconds: 350),
                                 curve: Curves.easeOutCubic,
@@ -263,9 +334,7 @@ class _LiveRadarScreenState extends State<LiveRadarScreen> {
                       child: Container(
                         width: 380,
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.surface.withOpacity(
-                            0.95,
-                          ), // Fixed Light Mode contrast
+                          color: theme.colorScheme.surface.withOpacity(0.95),
                           border: Border(
                             left: BorderSide(
                               color: theme.dividerColor.withOpacity(0.5),
@@ -383,7 +452,7 @@ class _LiveRadarScreenState extends State<LiveRadarScreen> {
                   ),
                   const SizedBox(height: 16),
                   _buildAnimatedToggle(
-                    'Offline Drivers (Last Known)',
+                    'Offline Drivers',
                     _showOfflineDrivers,
                     Colors.grey,
                     Icons.location_disabled,
@@ -401,7 +470,7 @@ class _LiveRadarScreenState extends State<LiveRadarScreen> {
                   ),
                   const SizedBox(height: 16),
                   _buildAnimatedToggle(
-                    'Driver Concentration (Heat)',
+                    'Driver Heatmap',
                     _showDriverHeatmap,
                     Colors.lightBlue,
                     Icons.radar,
@@ -410,7 +479,7 @@ class _LiveRadarScreenState extends State<LiveRadarScreen> {
                   ),
                   const SizedBox(height: 16),
                   _buildAnimatedToggle(
-                    'Historical Incident Heatmap',
+                    'Historical Heatmap',
                     _showHistoricalHeatmap,
                     Colors.purple,
                     Icons.map,
@@ -435,7 +504,6 @@ class _LiveRadarScreenState extends State<LiveRadarScreen> {
                   if (state.isLoading)
                     const Center(child: CircularProgressIndicator())
                   else ...[
-                    // FIX: Real dynamic calculation of the online fleet!
                     _buildAnimatedStat(
                       'Total Fleet Online',
                       state.onlineDriverMarkers.length,
@@ -555,7 +623,7 @@ class _LiveRadarScreenState extends State<LiveRadarScreen> {
   }
 }
 
-// --- DRIVER OVERLAY (UPDATED FOR LIGHT THEME FIXES) ---
+// --- OVERLAYS (UNCHANGED EXCEPT FOR LIGHT THEME READABILITY) ---
 class _DriverInfoOverlay extends StatelessWidget {
   final Map<String, dynamic> driverData;
   final LiveRadarBloc bloc;
@@ -593,9 +661,7 @@ class _DriverInfoOverlay extends StatelessWidget {
           width: 360,
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: theme.colorScheme.surface.withOpacity(
-              0.95,
-            ), // Fixed for light mode contrast
+            color: theme.colorScheme.surface.withOpacity(0.95),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: stateColor.withOpacity(0.5), width: 1.5),
             boxShadow: [
@@ -716,7 +782,6 @@ class _DriverInfoOverlay extends StatelessWidget {
   }
 }
 
-// --- JOB OVERLAY (UPDATED FOR LIGHT THEME FIXES) ---
 class _JobInfoOverlay extends StatelessWidget {
   final Map<String, dynamic> jobData;
   final VoidCallback onClose;
@@ -741,7 +806,11 @@ class _JobInfoOverlay extends StatelessWidget {
         jobData['customerPhone'] ?? jobData['CustomerPhone'] ?? 'No Phone';
     final driverName =
         jobData['driverName'] ?? jobData['DriverName'] ?? 'Unassigned';
-    final int status = jobData['status'] ?? jobData['Status'] ?? 0;
+    final int status =
+        int.tryParse(
+          (jobData['status'] ?? jobData['Status'] ?? '0').toString(),
+        ) ??
+        0;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
@@ -751,9 +820,7 @@ class _JobInfoOverlay extends StatelessWidget {
           width: 360,
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: theme.colorScheme.surface.withOpacity(
-              0.95,
-            ), // Fixed for light mode contrast
+            color: theme.colorScheme.surface.withOpacity(0.95),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: status == 0
