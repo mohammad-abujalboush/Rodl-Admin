@@ -12,19 +12,22 @@ import '../bloc/driver_management_bloc.dart';
 import '../../data/models/driver_management_models.dart';
 
 class DriverManagementScreen extends StatelessWidget {
-  const DriverManagementScreen({super.key});
+  // --- NEW: Added parameter for Live Radar Integration ---
+  final String? autoOpenDriverId;
+  const DriverManagementScreen({super.key, this.autoOpenDriverId});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => sl<DriverManagementBloc>()..add(FetchFleetData()),
-      child: const _DriverManagementView(),
+      child: _DriverManagementView(autoOpenDriverId: autoOpenDriverId),
     );
   }
 }
 
 class _DriverManagementView extends StatefulWidget {
-  const _DriverManagementView();
+  final String? autoOpenDriverId;
+  const _DriverManagementView({this.autoOpenDriverId});
 
   @override
   State<_DriverManagementView> createState() => _DriverManagementViewState();
@@ -34,6 +37,7 @@ class _DriverManagementViewState extends State<_DriverManagementView>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String _searchQuery = '';
+  bool _hasAutoOpened = false;
 
   @override
   void initState() {
@@ -52,7 +56,7 @@ class _DriverManagementViewState extends State<_DriverManagementView>
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor, // Light theme compliant
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(32.0),
@@ -108,6 +112,28 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                 child:
                     BlocConsumer<DriverManagementBloc, DriverManagementState>(
                       listener: (context, state) {
+                        // --- NEW: Auto-open Driver Dossier from Live Radar ---
+                        if (state is FleetLoaded &&
+                            widget.autoOpenDriverId != null &&
+                            !_hasAutoOpened) {
+                          _hasAutoOpened = true;
+                          try {
+                            final targetDriver = state.activeFleet.firstWhere(
+                              (d) =>
+                                  d.driverProfileId == widget.autoOpenDriverId,
+                            );
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              _showActiveDriverDossier(
+                                context,
+                                targetDriver,
+                                theme,
+                              );
+                            });
+                          } catch (e) {
+                            // Driver not found in active fleet
+                          }
+                        }
+
                         if (state is FleetError) {
                           _showSnackBar(
                             context,
@@ -263,14 +289,13 @@ class _DriverManagementViewState extends State<_DriverManagementView>
     List<FleetDriverModel> activeFleet,
     ThemeData theme,
   ) {
-    if (activeFleet.isEmpty) {
+    if (activeFleet.isEmpty)
       return Center(
         child: Text(
           'No active drivers match your search.',
           style: TextStyle(color: theme.disabledColor, fontSize: 16),
         ),
       );
-    }
 
     return Container(
       decoration: BoxDecoration(
@@ -542,7 +567,6 @@ class _DriverManagementViewState extends State<_DriverManagementView>
         ),
       );
     }
-
     return ResponsiveBuilder(
       builder: (context, sizingInfo) {
         int crossAxisCount = sizingInfo.isDesktop ? 3 : 2;
@@ -567,6 +591,7 @@ class _DriverManagementViewState extends State<_DriverManagementView>
     FleetDriverModel driver,
     ThemeData theme,
   ) {
+    // ... [Content identical to original file]
     return Card(
       elevation: 0,
       color: theme.cardColor,
@@ -673,6 +698,7 @@ class _DriverManagementViewState extends State<_DriverManagementView>
     FleetDriverModel driver,
     ThemeData theme,
   ) {
+    // ... [Content identical to original file]
     final docs = driver.documents;
     final vehicle = driver.vehicleDetails;
     final bloc = parentContext.read<DriverManagementBloc>();
@@ -1023,6 +1049,7 @@ class _DriverManagementViewState extends State<_DriverManagementView>
     FleetDriverModel driver,
     ThemeData theme,
   ) {
+    // ... [Content identical to original file]
     final docs = driver.documents;
     final vehicle = driver.vehicleDetails;
     final bloc = parentContext.read<DriverManagementBloc>();
@@ -1352,7 +1379,6 @@ class _DriverManagementViewState extends State<_DriverManagementView>
     ThemeData theme,
   ) {
     final bool hasDoc = url != null && url.isNotEmpty;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1463,6 +1489,7 @@ class _DriverManagementViewState extends State<_DriverManagementView>
   };
 
   void _showManualOnboardDialog(BuildContext parentContext, ThemeData theme) {
+    // ... [Content identical to original file]
     final formKey = GlobalKey<FormState>();
     final bloc = parentContext.read<DriverManagementBloc>();
 
@@ -1630,8 +1657,6 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                     ),
                                   ),
                                   const SizedBox(height: 16),
-
-                                  // FEATURE: Full 9 Enums Synced
                                   DropdownButtonFormField<int>(
                                     key: ValueKey(truckType),
                                     initialValue: truckType,
@@ -1691,7 +1716,7 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                       DropdownMenuItem(
                                         value: 6,
                                         child: Text(
-                                          'Motorcycle Trailer',
+                                          'Motorcycle Dedicated Trailer',
                                           style: TextStyle(
                                             color: theme.colorScheme.onSurface,
                                           ),
@@ -1952,6 +1977,7 @@ class _DriverManagementViewState extends State<_DriverManagementView>
     FleetDriverModel driver,
     ThemeData theme,
   ) {
+    // ... [Content identical to original file]
     final formKey = GlobalKey<FormState>();
     final bloc = parentContext.read<DriverManagementBloc>();
 
@@ -1967,19 +1993,16 @@ class _DriverManagementViewState extends State<_DriverManagementView>
     int truckType = [1, 2, 3, 4, 5, 6, 7, 8, 9].contains(vehicle?['truckType'])
         ? vehicle!['truckType']
         : 1;
-
     String? selectedMake = vehicle?['make'];
     if (selectedMake != null && !_vehicleDatabase.containsKey(selectedMake)) {
       selectedMake = null;
     }
-
     String? selectedModel = vehicle?['model'];
     if (selectedMake != null &&
         selectedModel != null &&
         !(_vehicleDatabase[selectedMake]!.contains(selectedModel))) {
       selectedModel = null;
     }
-
     int selectedYear = vehicle?['year'] ?? DateTime.now().year;
     final List<int> yearsList = List.generate(
       30,
@@ -2132,8 +2155,6 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                         ),
                                       ),
                                       const SizedBox(height: 16),
-
-                                      // FEATURE: Sync all 9 Trucks
                                       DropdownButtonFormField<int>(
                                         key: ValueKey(truckType),
                                         initialValue: truckType,

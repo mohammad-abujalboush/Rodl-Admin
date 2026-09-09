@@ -1,5 +1,10 @@
+import 'dart:convert';
+// Using dart:html to natively force a file download in Chrome/Flutter Web
+import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:responsive_builder/responsive_builder.dart';
+import 'package:go_router/go_router.dart';
 import '../data/api_data.dart';
 
 class FinancialOverviewScreen extends StatefulWidget {
@@ -19,11 +24,12 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
 
   DateTime? _startDate;
   DateTime? _endDate;
+  String _activePreset = 'All Time';
 
   @override
   void initState() {
     super.initState();
-    _refreshAllData();
+    _applyDatePreset('All Time');
   }
 
   void _refreshAllData() {
@@ -37,7 +43,37 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
     });
   }
 
-  Future<void> _selectDateRange(BuildContext context) async {
+  void _applyDatePreset(String preset) {
+    setState(() {
+      _activePreset = preset;
+      final now = DateTime.now().toUtc();
+      switch (preset) {
+        case 'Today':
+          _startDate = DateTime.utc(now.year, now.month, now.day);
+          _endDate = DateTime.utc(now.year, now.month, now.day, 23, 59, 59);
+          break;
+        case 'This Week':
+          _startDate = now.subtract(Duration(days: now.weekday - 1));
+          _endDate = now;
+          break;
+        case 'This Month':
+          _startDate = DateTime.utc(now.year, now.month, 1);
+          _endDate = DateTime.utc(now.year, now.month + 1, 0, 23, 59, 59);
+          break;
+        case 'YTD':
+          _startDate = DateTime.utc(now.year, 1, 1);
+          _endDate = now;
+          break;
+        case 'All Time':
+          _startDate = null;
+          _endDate = null;
+          break;
+      }
+    });
+    _refreshAllData();
+  }
+
+  Future<void> _selectCustomDateRange(BuildContext context) async {
     final picked = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2020),
@@ -50,9 +86,105 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
     );
 
     if (picked != null) {
-      _startDate = picked.start;
-      _endDate = picked.end;
+      setState(() {
+        _activePreset = 'Custom';
+        _startDate = picked.start.toUtc();
+        _endDate = picked.end.toUtc();
+      });
       _refreshAllData();
+    }
+  }
+
+  // --- NATIVE WEB CSV DOWNLOADER ---
+  void _exportFinancialReport() async {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Downloading CSV Report...')));
+
+    try {
+      final invoices = await _invoicesFuture;
+      final payroll = await _payrollFuture;
+
+      StringBuffer csv = StringBuffer();
+
+      csv.writeln('--- RODL FINANCIAL REPORT ---');
+      csv.writeln('Date Filter:,$_activePreset');
+      csv.writeln('Export Date:,${DateTime.now().toIso8601String()}');
+      csv.writeln('');
+
+      csv.writeln('--- ACCOUNTS RECEIVABLE (INVOICES) ---');
+      csv.writeln('Recipient,Issue Date,Amount,Status');
+      for (var inv in invoices) {
+        final rawDate =
+            inv['issueDate']?.toString() ?? inv['IssueDate']?.toString() ?? '';
+        final parsedDate = DateTime.tryParse(rawDate) ?? DateTime.now();
+        final dateStr = DateFormat('yyyy-MM-dd').format(parsedDate);
+        final amount = ((inv['totalAmount'] ?? inv['TotalAmount'] ?? 0) as num)
+            .toDouble();
+        final status = _getInvoiceStatusString(
+          ((inv['status'] ?? inv['Status'] ?? 0) as num).toInt(),
+        );
+
+        final name = (inv['recipientName'] ?? inv['RecipientName'] ?? 'Unknown')
+            .toString()
+            .replaceAll(',', ' ');
+        csv.writeln('$name,$dateStr,\$${amount.toStringAsFixed(2)},$status');
+      }
+
+      csv.writeln('');
+
+      csv.writeln('--- ACCOUNTS PAYABLE (PAYROLL) ---');
+      csv.writeln('Driver Name,Pending Dispatches,Net Payout Owed');
+      for (var p in payroll) {
+        final name = (p['driverName'] ?? p['DriverName'] ?? 'Unknown')
+            .toString()
+            .replaceAll(',', ' ');
+        final jobs = ((p['unpaidJobCount'] ?? p['UnpaidJobCount'] ?? 0) as num)
+            .toInt();
+        final amount = ((p['netPayout'] ?? p['NetPayout'] ?? 0) as num)
+            .toDouble();
+        csv.writeln('$name,$jobs,\$${amount.toStringAsFixed(2)}');
+      }
+
+      // Creates a raw blob and forces the browser to download it as a physical file
+      final bytes = utf8.encode(csv.toString());
+      final blob = html.Blob([bytes]);
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      final anchor = html.AnchorElement(href: url)
+        ..setAttribute(
+          "download",
+          "Financial_Report_${DateTime.now().millisecondsSinceEpoch}.csv",
+        )
+        ..click();
+      html.Url.revokeObjectUrl(url);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Export failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  String _getInvoiceStatusString(int status) {
+    switch (status) {
+      case 0:
+        return 'Draft';
+      case 1:
+        return 'Unpaid';
+      case 2:
+        return 'Partial';
+      case 3:
+        return 'Paid';
+      case 4:
+        return 'Overdue';
+      case 5:
+        return 'Voided';
+      default:
+        return 'Unknown';
     }
   }
 
@@ -61,11 +193,12 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      // FIX: Upgraded to Light Theme compliant properties
-      backgroundColor: theme.colorScheme.surface,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(32.0),
+          padding: EdgeInsets.all(
+            MediaQuery.of(context).size.width < 600 ? 16.0 : 32.0,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -119,11 +252,15 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
         ? '${dateFmt.format(_startDate!)} - ${dateFmt.format(_endDate!)}'
         : 'All-Time';
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 16,
+      runSpacing: 16,
       children: [
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               'Financial Overview',
@@ -141,12 +278,32 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
             ),
           ],
         ),
-        Row(
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'All Time', label: Text('All Time')),
+                ButtonSegment(value: 'This Month', label: Text('Month')),
+                ButtonSegment(value: 'YTD', label: Text('YTD')),
+              ],
+              selected: {
+                _activePreset != 'Custom' &&
+                        _activePreset != 'Today' &&
+                        _activePreset != 'This Week'
+                    ? _activePreset
+                    : 'All Time',
+              },
+              onSelectionChanged: (set) => _applyDatePreset(set.first),
+            ),
             OutlinedButton.icon(
-              icon: const Icon(Icons.calendar_month),
-              label: Text(rangeText),
-              onPressed: () => _selectDateRange(context),
+              icon: const Icon(Icons.date_range),
+              label: Text(
+                _activePreset == 'Custom' ? rangeText : 'Custom Range',
+              ),
+              onPressed: () => _selectCustomDateRange(context),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,
@@ -158,17 +315,22 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
                 foregroundColor: theme.colorScheme.onSurface,
               ),
             ),
-            const SizedBox(width: 16),
-            FilledButton.icon(
-              icon: const Icon(Icons.refresh),
-              label: const Text('Refresh Data'),
-              onPressed: _refreshAllData,
+            FilledButton.tonalIcon(
+              icon: const Icon(Icons.download),
+              label: const Text('Export CSV'),
+              onPressed: _exportFinancialReport,
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,
                   vertical: 16,
                 ),
               ),
+            ),
+            IconButton.filled(
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Refresh Ledger',
+              onPressed: _refreshAllData,
+              padding: const EdgeInsets.all(16),
             ),
           ],
         ),
@@ -188,29 +350,34 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
         }
         if (snapshot.hasError) {
           return _buildErrorState(
-            'Failed to load KPIs. Adjust date range.',
+            'Failed to load KPIs.',
+            snapshot.error,
             theme,
           );
         }
 
         final data = snapshot.data ?? {};
-
-        // FIX: Safe numeric casting to prevent UI crashes if backend returns INT instead of DOUBLE
-        final totalRevenue = (data['totalRevenue'] as num?)?.toDouble() ?? 0.0;
-        final activeTows = (data['activeTows'] as num?)?.toInt() ?? 0;
-        final unassignedJobs = (data['unassignedJobs'] as num?)?.toInt() ?? 0;
-        final slaBreaches = (data['slaBreaches'] as num?)?.toInt() ?? 0;
+        // Dual fallback logic covers camelCase and PascalCase
+        final totalRevenue =
+            ((data['totalRevenue'] ?? data['TotalRevenue'] ?? 0) as num)
+                .toDouble();
+        final activeTows =
+            ((data['activeTows'] ?? data['ActiveTows'] ?? 0) as num).toInt();
+        final unassignedJobs =
+            ((data['unassignedJobs'] ?? data['UnassignedJobs'] ?? 0) as num)
+                .toInt();
+        final slaBreaches =
+            ((data['slaBreaches'] ?? data['SlaBreaches'] ?? 0) as num).toInt();
 
         return LayoutBuilder(
           builder: (context, constraints) {
-            // Refined math to prevent flex wrap overflows
             int columns = constraints.maxWidth > 1200
                 ? 4
                 : (constraints.maxWidth > 800 ? 2 : 1);
             double spacing = 24.0;
             double cardWidth =
-                (constraints.maxWidth - (spacing * (columns - 1))) / columns -
-                0.1;
+                ((constraints.maxWidth - (spacing * (columns - 1))) / columns)
+                    .floorToDouble();
 
             return Wrap(
               spacing: spacing,
@@ -219,10 +386,11 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
                 SizedBox(
                   width: cardWidth,
                   child: _buildMetricCard(
-                    title: 'Total Revenue',
+                    title: 'Gross Revenue',
                     value: NumberFormat.currency(
                       symbol: '\$',
                     ).format(totalRevenue),
+                    subtitle: 'Settled + Pending',
                     icon: Icons.account_balance_wallet,
                     color: Colors.green,
                     theme: theme,
@@ -231,9 +399,9 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
                 SizedBox(
                   width: cardWidth,
                   child: _buildMetricCard(
-                    title: 'Active Jobs',
+                    title: 'Active Dispatches',
                     value: activeTows.toString(),
-                    subtitle: 'Jobs currently running',
+                    subtitle: 'Generating revenue now',
                     icon: Icons.local_shipping,
                     color: Colors.blue,
                     theme: theme,
@@ -242,9 +410,9 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
                 SizedBox(
                   width: cardWidth,
                   child: _buildMetricCard(
-                    title: 'Pending Jobs',
+                    title: 'Pending Queue',
                     value: unassignedJobs.toString(),
-                    subtitle: 'Waiting for drivers',
+                    subtitle: 'Awaiting assignment',
                     icon: Icons.hourglass_empty,
                     color: Colors.orange,
                     theme: theme,
@@ -253,9 +421,9 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
                 SizedBox(
                   width: cardWidth,
                   child: _buildMetricCard(
-                    title: 'Needs Attention',
+                    title: 'SLA Escalations',
                     value: slaBreaches.toString(),
-                    subtitle: 'Jobs delayed or stuck',
+                    subtitle: 'Jobs delayed > 45m',
                     icon: Icons.warning_amber_rounded,
                     color: theme.colorScheme.error,
                     theme: theme,
@@ -341,9 +509,13 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
 
   Widget _buildAccountsReceivable(ThemeData theme) {
     return _buildSectionContainer(
-      title: 'Pending Invoices',
+      title: 'Accounts Receivable (Invoices)',
       icon: Icons.receipt_long,
       theme: theme,
+      action: TextButton(
+        onPressed: () => context.go('/invoices'),
+        child: const Text('View All Ledger'),
+      ),
       child: FutureBuilder<List<dynamic>>(
         future: _invoicesFuture,
         builder: (context, snapshot) {
@@ -354,7 +526,11 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
             );
           }
           if (snapshot.hasError) {
-            return _buildErrorState('Unable to load invoices', theme);
+            return _buildErrorState(
+              'Unable to load invoices',
+              snapshot.error,
+              theme,
+            );
           }
 
           final invoices = snapshot.data ?? [];
@@ -366,56 +542,161 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
             );
           }
 
-          return ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: invoices.take(5).length,
-            separatorBuilder: (_, __) =>
-                Divider(color: theme.dividerColor.withValues(alpha: 0.3)),
-            itemBuilder: (context, index) {
-              final inv = invoices[index];
-              final rawDate = inv['issueDate']?.toString() ?? '';
-              final parsedDate = DateTime.tryParse(rawDate) ?? DateTime.now();
-              final amount = (inv['totalAmount'] as num?)?.toDouble() ?? 0.0;
+          double totalOutstanding = 0;
+          double totalPaid = 0;
+          for (var inv in invoices) {
+            final amt = ((inv['totalAmount'] ?? inv['TotalAmount'] ?? 0) as num)
+                .toDouble();
+            final status = ((inv['status'] ?? inv['Status'] ?? 0) as num)
+                .toInt();
+            if (status == 3)
+              totalPaid += amt;
+            else if (status == 1 || status == 2 || status == 4)
+              totalOutstanding += amt;
+          }
 
-              return ListTile(
-                contentPadding: const EdgeInsets.symmetric(
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
                   horizontal: 24,
-                  vertical: 8,
+                  vertical: 16,
                 ),
-                title: Text(
-                  inv['recipientName'] ?? 'Unknown',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-                subtitle: Text(
-                  'Issued: ${DateFormat('MMM dd, yyyy').format(parsedDate)}',
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
-                ),
-                trailing: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                child: Row(
                   children: [
-                    Text(
-                      NumberFormat.currency(symbol: '\$').format(amount),
-                      style: theme.textTheme.titleMedium?.copyWith(
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Outstanding',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.6,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            NumberFormat.currency(
+                              symbol: '\$',
+                            ).format(totalOutstanding),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.orange,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            'Settled',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.6,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            NumberFormat.currency(
+                              symbol: '\$',
+                            ).format(totalPaid),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(
+                height: 1,
+                color: theme.dividerColor.withValues(alpha: 0.3),
+              ),
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: invoices.take(6).length,
+                separatorBuilder: (_, __) => Divider(
+                  height: 1,
+                  color: theme.dividerColor.withValues(alpha: 0.3),
+                ),
+                itemBuilder: (context, index) {
+                  final inv = invoices[index];
+                  final rawDate =
+                      inv['issueDate']?.toString() ??
+                      inv['IssueDate']?.toString() ??
+                      '';
+                  final parsedDate =
+                      DateTime.tryParse(rawDate) ?? DateTime.now();
+                  final amount =
+                      ((inv['totalAmount'] ?? inv['TotalAmount'] ?? 0) as num)
+                          .toDouble();
+
+                  return ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 8,
+                    ),
+                    title: Text(
+                      (inv['recipientName'] ??
+                              inv['RecipientName'] ??
+                              'Unknown')
+                          .toString(),
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: theme.colorScheme.onSurface,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    _buildInvoiceStatusChip(
-                      (inv['status'] as num?)?.toInt() ?? 0,
-                      theme,
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 4),
+                        Text(
+                          'Issued: ${DateFormat('MMM dd, yyyy').format(parsedDate)}',
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.6,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        _buildInvoiceStatusChip(
+                          ((inv['status'] ?? inv['Status'] ?? 0) as num)
+                              .toInt(),
+                          theme,
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              );
-            },
+                    trailing: Column(
+                      mainAxisSize: MainAxisSize.min, // Prevents layout crashes
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          NumberFormat.currency(symbol: '\$').format(amount),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
           );
         },
       ),
@@ -424,9 +705,13 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
 
   Widget _buildAccountsPayable(ThemeData theme) {
     return _buildSectionContainer(
-      title: 'Driver Payroll',
+      title: 'Accounts Payable (Driver Payroll)',
       icon: Icons.payments,
       theme: theme,
+      action: FilledButton.tonal(
+        onPressed: () => context.go('/payroll'),
+        child: const Text('Process Payouts'),
+      ),
       child: FutureBuilder<List<dynamic>>(
         future: _payrollFuture,
         builder: (context, snapshot) {
@@ -437,59 +722,125 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
             );
           }
           if (snapshot.hasError) {
-            return _buildErrorState('Unable to load pending payroll', theme);
+            return _buildErrorState(
+              'Unable to load pending payroll',
+              snapshot.error,
+              theme,
+            );
           }
 
           final payouts = snapshot.data ?? [];
           if (payouts.isEmpty) {
             return _buildEmptyState(
-              'All drivers are paid out.',
+              'All active fleets are settled.',
               Icons.domain_verification,
               theme,
             );
           }
 
-          return ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: payouts.take(5).length,
-            separatorBuilder: (_, __) =>
-                Divider(color: theme.dividerColor.withValues(alpha: 0.3)),
-            itemBuilder: (context, index) {
-              final payout = payouts[index];
-              final amount = (payout['netPayout'] as num?)?.toDouble() ?? 0.0;
+          double totalOwed = 0;
+          for (var payout in payouts) {
+            totalOwed +=
+                ((payout['netPayout'] ?? payout['NetPayout'] ?? 0) as num)
+                    .toDouble();
+          }
 
-              return ListTile(
-                contentPadding: const EdgeInsets.symmetric(
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
                   horizontal: 24,
-                  vertical: 8,
+                  vertical: 16,
                 ),
-                leading: CircleAvatar(
-                  backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
-                  child: Icon(Icons.person, color: theme.primaryColor),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Total Payroll Liability',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.6,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      NumberFormat.currency(symbol: '\$').format(totalOwed),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.error,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
                 ),
-                title: Text(
-                  payout['driverName'] ?? 'Unknown',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onSurface,
-                  ),
+              ),
+              Divider(
+                height: 1,
+                color: theme.dividerColor.withValues(alpha: 0.3),
+              ),
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: payouts.take(6).length,
+                separatorBuilder: (_, __) => Divider(
+                  height: 1,
+                  color: theme.dividerColor.withValues(alpha: 0.3),
                 ),
-                subtitle: Text(
-                  '${payout['unpaidJobCount'] ?? 0} Jobs Pending',
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
-                ),
-                trailing: Text(
-                  NumberFormat.currency(symbol: '\$').format(amount),
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green.shade600,
-                  ),
-                ),
-              );
-            },
+                itemBuilder: (context, index) {
+                  final payout = payouts[index];
+                  final amount =
+                      ((payout['netPayout'] ?? payout['NetPayout'] ?? 0) as num)
+                          .toDouble();
+
+                  return ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 8,
+                    ),
+                    leading: CircleAvatar(
+                      backgroundColor: theme.primaryColor.withValues(
+                        alpha: 0.1,
+                      ),
+                      child: Icon(Icons.engineering, color: theme.primaryColor),
+                    ),
+                    title: Text(
+                      (payout['driverName'] ??
+                              payout['DriverName'] ??
+                              'Unknown')
+                          .toString(),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    subtitle: Text(
+                      '${((payout['unpaidJobCount'] ?? payout['UnpaidJobCount'] ?? 0) as num).toInt()} Unsettled Dispatches',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.6,
+                        ),
+                      ),
+                    ),
+                    trailing: Column(
+                      mainAxisSize: MainAxisSize.min, // Prevents layout crashes
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          NumberFormat.currency(symbol: '\$').format(amount),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
           );
         },
       ),
@@ -524,18 +875,23 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Icon(icon, color: theme.primaryColor),
-                    const SizedBox(width: 12),
-                    Text(
-                      title,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.onSurface,
+                Expanded(
+                  child: Row(
+                    children: [
+                      Icon(icon, color: theme.primaryColor),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 if (action != null) action,
               ],
@@ -550,37 +906,30 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
 
   Widget _buildInvoiceStatusChip(int status, ThemeData theme) {
     Color color;
-    String label;
+    String label = _getInvoiceStatusString(status);
 
-    // FIX: Perfectly synced to the backend AppEnums.cs InvoiceStatus mapping
     switch (status) {
       case 0:
         color = Colors.grey;
-        label = 'Draft';
         break;
       case 1:
         color = Colors.orange;
-        label = 'Unpaid';
         break;
       case 2:
         color = Colors.blue;
-        label = 'Partial';
         break;
       case 3:
         color = Colors.green;
-        label = 'Paid';
         break;
       case 4:
         color = Colors.red;
-        label = 'Overdue';
         break;
       case 5:
         color = Colors.grey;
-        label = 'Voided';
         break;
       default:
         color = theme.disabledColor;
-        label = 'Unknown';
+        break;
     }
 
     return Container(
@@ -621,21 +970,49 @@ class _FinancialOverviewScreenState extends State<FinancialOverviewScreen> {
     );
   }
 
-  Widget _buildErrorState(String error, ThemeData theme) {
+  Widget _buildErrorState(
+    String errorTitle,
+    Object? exception,
+    ThemeData theme,
+  ) {
     return Padding(
       padding: const EdgeInsets.all(32.0),
       child: Center(
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
             const SizedBox(height: 16),
             Text(
-              error,
+              errorTitle,
               style: TextStyle(
                 color: theme.colorScheme.error,
                 fontWeight: FontWeight.bold,
+                fontSize: 16,
               ),
             ),
+            if (exception != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.error.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: theme.colorScheme.error.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: SelectableText(
+                  exception.toString(),
+                  style: TextStyle(
+                    color: theme.colorScheme.error,
+                    fontSize: 12,
+                    fontFamily: 'monospace',
+                  ),
+                  textAlign: TextAlign.left,
+                ),
+              ),
+            ],
           ],
         ),
       ),

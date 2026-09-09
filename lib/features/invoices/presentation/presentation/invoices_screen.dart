@@ -17,7 +17,7 @@ class InvoicesScreen extends StatefulWidget {
 
 class _InvoicesScreenState extends State<InvoicesScreen> {
   String _searchQuery = '';
-  InvoiceType _selectedTab = InvoiceType.b2bBatch;
+  InvoiceType? _selectedTab;
 
   @override
   Widget build(BuildContext context) {
@@ -70,8 +70,13 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
 
                 SizedBox(
                   width: double.infinity,
-                  child: SegmentedButton<InvoiceType>(
+                  child: SegmentedButton<InvoiceType?>(
                     segments: const [
+                      ButtonSegment(
+                        value: null, // null represents "All"
+                        label: Text('All'),
+                        icon: Icon(Icons.all_inclusive),
+                      ),
                       ButtonSegment(
                         value: InvoiceType.b2bBatch,
                         label: Text('Corporate B2B'),
@@ -89,7 +94,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                       ),
                     ],
                     selected: {_selectedTab},
-                    onSelectionChanged: (Set<InvoiceType> selection) =>
+                    onSelectionChanged: (Set<InvoiceType?> selection) =>
                         setState(() => _selectedTab = selection.first),
                   ),
                 ),
@@ -119,15 +124,10 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                         return const Center(child: CircularProgressIndicator());
                       }
                       if (state is InvoicesLoaded) {
-                        final filtered = state.invoices.where((i) {
-                          final matchesTab = i.type == _selectedTab;
-                          final matchesSearch =
-                              _searchQuery.isEmpty ||
-                              i.recipientName.toLowerCase().contains(
-                                _searchQuery,
-                              ) ||
-                              i.id.toLowerCase().contains(_searchQuery);
-                          return matchesTab && matchesSearch;
+                        final filtered = state.invoices.where((inv) {
+                          // If _selectedTab is null, show everything. Otherwise, match the type.
+                          return _selectedTab == null ||
+                              inv.type == _selectedTab;
                         }).toList();
 
                         return _buildDesktopTable(context, filtered, theme);
@@ -137,9 +137,9 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                   ),
                 ),
               ],
-            ),
+            ), 
           ),
-        ),
+        ), 
       ),
     );
   }

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:responsive_builder/responsive_builder.dart';
-import 'package:roadside_service/features/service_requests/presentation/screens/active_jobs_screen.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/di/injection_container.dart';
 import '../bloc/live_radar_bloc.dart';
 
@@ -16,6 +16,8 @@ class LiveRadarScreen extends StatefulWidget {
 
 class _LiveRadarScreenState extends State<LiveRadarScreen>
     with TickerProviderStateMixin {
+  final GlobalKey<ScaffoldState> _scaffoldKey =
+      GlobalKey<ScaffoldState>(); // NEW: Key for the drawer
   GoogleMapController? _mapController;
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -34,7 +36,6 @@ class _LiveRadarScreenState extends State<LiveRadarScreen>
   @override
   void initState() {
     super.initState();
-    // 5000 meters matches the Tier 1 search radius in the backend
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3),
@@ -42,7 +43,7 @@ class _LiveRadarScreenState extends State<LiveRadarScreen>
     _pulseAnimation = Tween<double>(
       begin: 0,
       end: 5000,
-    ).animate(CurvedAnimation(parent: _pulseController, curve: Curves.easeOut));
+    ).animate(_pulseController);
   }
 
   @override
@@ -58,6 +59,13 @@ class _LiveRadarScreenState extends State<LiveRadarScreen>
     return BlocProvider(
       create: (_) => sl<LiveRadarBloc>()..add(InitializeRadar()),
       child: Scaffold(
+        key: _scaffoldKey, // Attached the key here
+        backgroundColor: theme.scaffoldBackgroundColor,
+        // --- NEW: The Control Panel is now accessible on mobile via an endDrawer ---
+        endDrawer: Drawer(
+          backgroundColor: theme.colorScheme.surface.withOpacity(0.95),
+          child: _buildControlPanel(theme),
+        ),
         body: ResponsiveBuilder(
           builder: (context, sizingInfo) {
             final isDesktop = sizingInfo.isDesktop;
@@ -68,7 +76,7 @@ class _LiveRadarScreenState extends State<LiveRadarScreen>
                   flex: 3,
                   child: Stack(
                     children: [
-                      // --- THE MAP LAYER WITH REAL-TIME PULSE ANIMATION ---
+                      // --- MAP LAYER ---
                       BlocConsumer<LiveRadarBloc, LiveRadarState>(
                         listener: (context, state) {
                           if (state.successMessage != null) {
@@ -114,7 +122,6 @@ class _LiveRadarScreenState extends State<LiveRadarScreen>
                                   state.driverHeatmapCircles.values,
                                 );
 
-                              // LIVE RADAR PULSE FOR UNASSIGNED JOBS
                               if (_showActiveJobs) {
                                 state.rawJobData.forEach((jobId, rawData) {
                                   int status =
@@ -126,7 +133,6 @@ class _LiveRadarScreenState extends State<LiveRadarScreen>
                                       ) ??
                                       0;
                                   if (status == 0) {
-                                    // Pending/Searching
                                     double pickLat =
                                         double.tryParse(
                                           (rawData['pickupLatitude'] ??
@@ -143,10 +149,19 @@ class _LiveRadarScreenState extends State<LiveRadarScreen>
                                               .toString(),
                                         ) ??
                                         0.0;
+
                                     if (pickLat != 0.0 && pickLng != 0.0) {
-                                      double opacity =
-                                          (1.0 - (_pulseAnimation.value / 5000))
-                                              .clamp(0.0, 1.0);
+                                      double fraction =
+                                          _pulseAnimation.value / 5000;
+                                      double opacity = 0.0;
+                                      if (fraction < 0.15) {
+                                        opacity = fraction / 0.15;
+                                      } else {
+                                        opacity =
+                                            1.0 - ((fraction - 0.15) / 0.85);
+                                      }
+                                      opacity = opacity.clamp(0.0, 1.0);
+
                                       displayCircles.add(
                                         Circle(
                                           circleId: CircleId('pulse_$jobId'),
@@ -211,6 +226,26 @@ class _LiveRadarScreenState extends State<LiveRadarScreen>
                               ),
                               child: Row(
                                 children: [
+                                  // --- MOBILE SIDEBAR TOGGLE ---
+                                  if (!isDesktop) ...[
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.tune,
+                                      ), // Changed to a settings/tune icon
+                                      color: theme.colorScheme.onSurface,
+                                      tooltip: 'Map Filters & Data',
+                                      onPressed: () => _scaffoldKey.currentState
+                                          ?.openEndDrawer(),
+                                    ),
+                                    Container(
+                                      height: 20,
+                                      width: 1,
+                                      color: theme.dividerColor,
+                                      margin: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                      ),
+                                    ),
+                                  ],
                                   IconButton(
                                     icon: const Icon(Icons.my_location),
                                     color: theme.primaryColor,
@@ -282,18 +317,32 @@ class _LiveRadarScreenState extends State<LiveRadarScreen>
                                           onClose: () => context
                                               .read<LiveRadarBloc>()
                                               .add(SelectJobIndicator(null)),
-                                          onExpand: () {
+                                          onExpandJob: () {
                                             final jobId =
-                                                state.selectedJob!['requestId'];
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (context) =>
-                                                    ActiveJobsScreen(
-                                                      autoOpenJobId: jobId,
-                                                    ),
-                                              ),
-                                            );
+                                                state.selectedJob!['requestId']
+                                                    ?.toString() ??
+                                                '';
+                                            if (jobId.isNotEmpty) {
+                                              context.go(
+                                                '/active-jobs',
+                                                extra: {'autoOpenJobId': jobId},
+                                              );
+                                            }
+                                          },
+                                          onViewCustomer: () {
+                                            final customerId =
+                                                state.selectedJob!['customerId']
+                                                    ?.toString() ??
+                                                '';
+                                            if (customerId.isNotEmpty) {
+                                              context.go(
+                                                '/customer-crm',
+                                                extra: {
+                                                  'autoOpenCustomerId':
+                                                      customerId,
+                                                },
+                                              );
+                                            }
                                           },
                                         )
                                       : const SizedBox.shrink(),
@@ -314,6 +363,21 @@ class _LiveRadarScreenState extends State<LiveRadarScreen>
                                           onClose: () => context
                                               .read<LiveRadarBloc>()
                                               .add(SelectDriverIndicator(null)),
+                                          onViewProfile: () {
+                                            final driverId =
+                                                state
+                                                    .selectedDriver!['driverId']
+                                                    ?.toString() ??
+                                                '';
+                                            if (driverId.isNotEmpty) {
+                                              context.go(
+                                                '/driver-management',
+                                                extra: {
+                                                  'autoOpenDriverId': driverId,
+                                                },
+                                              );
+                                            }
+                                          },
                                         )
                                       : const SizedBox.shrink(),
                                 ),
@@ -326,7 +390,7 @@ class _LiveRadarScreenState extends State<LiveRadarScreen>
                   ),
                 ),
 
-                // --- GLASSMORPHISM SIDEBAR ---
+                // --- GLASSMORPHISM SIDEBAR (MAP FILTERS - DESKTOP ONLY) ---
                 if (isDesktop)
                   ClipRRect(
                     child: BackdropFilter(
@@ -360,6 +424,7 @@ class _LiveRadarScreenState extends State<LiveRadarScreen>
     );
   }
 
+  // --- Map bounds fitting & Control Panel ---
   void _fitMapToMarkers(LiveRadarState state) {
     if (_mapController == null) return;
     List<LatLng> points = [];
@@ -623,16 +688,18 @@ class _LiveRadarScreenState extends State<LiveRadarScreen>
   }
 }
 
-// --- OVERLAYS (UNCHANGED EXCEPT FOR LIGHT THEME READABILITY) ---
+// --- OVERLAYS ---
 class _DriverInfoOverlay extends StatelessWidget {
   final Map<String, dynamic> driverData;
   final LiveRadarBloc bloc;
   final VoidCallback onClose;
+  final VoidCallback onViewProfile;
 
   const _DriverInfoOverlay({
     required this.driverData,
     required this.bloc,
     required this.onClose,
+    required this.onViewProfile,
   });
 
   @override
@@ -754,26 +821,46 @@ class _DriverInfoOverlay extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 24),
-              if (stateStr == 'Idle Warning')
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+              // --- NAVIGATION CONTROLS ---
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: theme.primaryColor,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
+                      icon: const Icon(Icons.person_search, size: 18),
+                      label: const Text(
+                        'View Details',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      onPressed: onViewProfile,
                     ),
-                    icon: const Icon(Icons.notification_important, size: 18),
-                    label: const Text(
-                      'Send Wake-Up Ping',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    onPressed: () => bloc.add(PingDriver(driverId: driverId)),
                   ),
-                ),
+                  if (stateStr == 'Idle Warning') ...[
+                    const SizedBox(width: 8),
+                    IconButton.filled(
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.orange,
+                        padding: const EdgeInsets.all(16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      icon: const Icon(
+                        Icons.notification_important,
+                        color: Colors.black,
+                      ),
+                      tooltip: 'Send Wake-Up Ping',
+                      onPressed: () => bloc.add(PingDriver(driverId: driverId)),
+                    ),
+                  ],
+                ],
+              ),
             ],
           ),
         ),
@@ -785,12 +872,14 @@ class _DriverInfoOverlay extends StatelessWidget {
 class _JobInfoOverlay extends StatelessWidget {
   final Map<String, dynamic> jobData;
   final VoidCallback onClose;
-  final VoidCallback onExpand;
+  final VoidCallback onExpandJob;
+  final VoidCallback onViewCustomer;
 
   const _JobInfoOverlay({
     required this.jobData,
     required this.onClose,
-    required this.onExpand,
+    required this.onExpandJob,
+    required this.onViewCustomer,
   });
 
   @override
@@ -919,6 +1008,16 @@ class _JobInfoOverlay extends StatelessWidget {
                       ],
                     ),
                   ),
+                  // --- NAVIGATION TO CUSTOMER ---
+                  IconButton(
+                    icon: Icon(
+                      Icons.open_in_new,
+                      size: 20,
+                      color: theme.primaryColor,
+                    ),
+                    tooltip: 'View Customer Profile',
+                    onPressed: onViewCustomer,
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -960,7 +1059,7 @@ class _JobInfoOverlay extends StatelessWidget {
                     'Open Command Center',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  onPressed: onExpand,
+                  onPressed: onExpandJob,
                 ),
               ),
             ],

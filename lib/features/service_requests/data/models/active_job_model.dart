@@ -1,5 +1,8 @@
 class ActiveJobModel {
   final String requestId;
+  final String? customerId;
+  final String? driverId;
+
   final int serviceType;
   final int status;
   final DateTime createdAt;
@@ -14,23 +17,25 @@ class ActiveJobModel {
   final String customerName;
   final String customerPhone;
 
-  // --- Editable Dispatch Details ---
   final String? vehicleDetails;
   final String? locationCondition;
+  final bool isDrivable;
+  final bool wheelsLocked;
+  final bool requiresDollies;
 
-  // --- Granular Financials ---
   final double baseFare;
   final double distanceFee;
   final double waitPenalty;
   final double surcharges;
   final double totalFare;
 
-  // --- NEW: Media & Addons ---
   final List<JobAddonModel> addons;
   final List<JobPhotoModel> photos;
 
   ActiveJobModel({
     required this.requestId,
+    this.customerId,
+    this.driverId,
     required this.serviceType,
     required this.status,
     required this.createdAt,
@@ -46,6 +51,9 @@ class ActiveJobModel {
     required this.customerPhone,
     this.vehicleDetails,
     this.locationCondition,
+    required this.isDrivable,
+    required this.wheelsLocked,
+    required this.requiresDollies,
     required this.baseFare,
     required this.distanceFee,
     required this.waitPenalty,
@@ -58,6 +66,8 @@ class ActiveJobModel {
   factory ActiveJobModel.fromJson(Map<String, dynamic> json) {
     return ActiveJobModel(
       requestId: json['requestId']?.toString() ?? '',
+      customerId: json['customerId']?.toString(),
+      driverId: json['driverId']?.toString(),
       serviceType: json['serviceType'] ?? 1,
       status: json['status'] ?? 0,
       createdAt: DateTime.parse(
@@ -77,8 +87,11 @@ class ActiveJobModel {
       driverName: json['driverName'] ?? 'Unassigned',
       customerName: json['customerName'] ?? 'Unknown Customer',
       customerPhone: json['customerPhone'] ?? 'No Phone',
-      vehicleDetails: json['vehicleDetails'],
-      locationCondition: json['locationCondition'],
+      vehicleDetails: json['vehicleDetails']?.toString(),
+      locationCondition: json['locationCondition']?.toString(),
+      isDrivable: json['isDrivable'] ?? false,
+      wheelsLocked: json['wheelsLocked'] ?? false,
+      requiresDollies: json['requiresDollies'] ?? false,
       baseFare: (json['baseFare'] ?? 0).toDouble(),
       distanceFee: (json['distanceFee'] ?? 0).toDouble(),
       waitPenalty: (json['waitPenalty'] ?? 0).toDouble(),
@@ -113,8 +126,16 @@ class ActiveJobModel {
         return 'Loading Vehicle';
       case 6:
         return 'In Transit to Dropoff';
+      case 7:
+        return 'Unloading Vehicle';
+      case 8:
+        return 'Payment Pending';
       case 99:
         return 'Cancelled';
+      case 100:
+        return 'Failed PreAuth';
+      case 101:
+        return 'Suspended By Admin';
       default:
         return 'Unknown Status';
     }
@@ -142,6 +163,20 @@ class ActiveJobModel {
         return 'Fuel / Fluid Delivery';
       case 10:
         return 'Winching / Off-Road Recovery';
+      case 11:
+        return 'Dollies / Locked Wheels Towing';
+      case 12:
+        return 'EV Mobile Charging';
+      case 13:
+        return 'Accident Scene Clearance';
+      case 14:
+        return 'Tire Inflation / Air Only';
+      case 15:
+        return 'Electric Vehicle Flatbed Only';
+      case 16:
+        return 'Exotic Luxury Enclosed Tow';
+      case 17:
+        return 'Secondary Highway Escort (Safety Unit)';
       default:
         return 'Standard Tow';
     }
@@ -184,7 +219,7 @@ class JobPhotoModel {
 }
 
 class FleetDriverModel {
-  final String id;
+  final String driverProfileId;
   final String fullName;
   final double currentLatitude;
   final double currentLongitude;
@@ -192,12 +227,23 @@ class FleetDriverModel {
   final bool isOnJob;
 
   FleetDriverModel.fromJson(Map<String, dynamic> json)
-    : id = json['driverId']?.toString() ?? '',
+    : driverProfileId = json['driverId']?.toString() ?? '',
       fullName = json['fullName'] ?? 'Unknown Fleet Member',
       currentLatitude = (json['currentLatitude'] ?? 0).toDouble(),
       currentLongitude = (json['currentLongitude'] ?? 0).toDouble(),
-      vehicle = json['vehicle'] ?? 'Unknown Vehicle',
+      vehicle = _parseVehicle(json),
       isOnJob = json['isOnJob'] ?? false;
+
+  // FIX: Safely extract vehicle name whether the backend sends a String or a Map Object
+  static String _parseVehicle(Map<String, dynamic> json) {
+    final vd = json['vehicleDetails'];
+    if (vd is Map) {
+      return '${vd['year'] ?? ''} ${vd['make'] ?? ''} ${vd['model'] ?? ''}'
+          .trim();
+    }
+    if (vd is String) return vd;
+    return json['vehicle']?.toString() ?? 'Unknown Vehicle';
+  }
 }
 
 class ServiceAssetModel {

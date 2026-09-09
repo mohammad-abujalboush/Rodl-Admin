@@ -9,13 +9,17 @@ import '../../../../core/di/injection_container.dart';
 import '../bloc/customer_crm_bloc.dart';
 
 class CustomerCrmScreen extends StatefulWidget {
-  const CustomerCrmScreen({super.key});
+  // --- NEW: Added parameter to accept incoming requests from Live Radar ---
+  final String? autoOpenCustomerId;
+  const CustomerCrmScreen({super.key, this.autoOpenCustomerId});
+
   @override
   State<CustomerCrmScreen> createState() => _CustomerCrmScreenState();
 }
 
 class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
   String _searchQuery = '';
+  bool _hasAutoOpened = false; // Prevents infinite loop re-opening
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +28,7 @@ class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
     return BlocProvider(
       create: (_) => sl<CustomerCrmBloc>()..add(FetchCustomers()),
       child: Scaffold(
-        backgroundColor: theme.scaffoldBackgroundColor, // Light theme compliant
+        backgroundColor: theme.scaffoldBackgroundColor,
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(32.0),
@@ -36,6 +40,21 @@ class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
                 Expanded(
                   child: BlocConsumer<CustomerCrmBloc, CustomerCrmState>(
                     listener: (context, state) {
+                      // --- NEW: Auto-open logic for Live Radar Integration ---
+                      if (state is CustomersLoaded &&
+                          widget.autoOpenCustomerId != null &&
+                          !_hasAutoOpened) {
+                        _hasAutoOpened = true;
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          context.read<CustomerCrmBloc>().add(
+                            FetchCustomerProfile(
+                              customerId: widget.autoOpenCustomerId!,
+                            ),
+                          );
+                          _showProfileModal(context, theme);
+                        });
+                      }
+
                       if (state is CustomerActionSuccess) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -257,6 +276,7 @@ class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
   }
 
   void _showCreateCustomerForm(BuildContext parentContext, ThemeData theme) {
+    // ... [Content identical to original file]
     final bloc = parentContext.read<CustomerCrmBloc>();
     final formKey = GlobalKey<FormState>();
     final nameCtrl = TextEditingController();
@@ -379,6 +399,7 @@ class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
   }
 
   void _showProfileModal(BuildContext parentContext, ThemeData theme) {
+    // ... [Content identical to original file]
     final customerCrmBloc = parentContext.read<CustomerCrmBloc>();
 
     showGeneralDialog(
@@ -590,6 +611,7 @@ class _ProfileTabs extends StatelessWidget {
     );
   }
 
+  // --- Identity, Vehicle, and Job History Tabs are identical to the original file ---
   Widget _buildIdentityTab(BuildContext context) {
     final nameCtrl = TextEditingController(text: profile.customer.fullName);
     final phoneCtrl = TextEditingController(text: profile.customer.phone);
@@ -844,7 +866,6 @@ class _ProfileTabs extends StatelessWidget {
         ),
       );
     }
-
     return Container(
       decoration: BoxDecoration(
         color: theme.scaffoldBackgroundColor,
@@ -933,6 +954,7 @@ class _ProfileTabs extends StatelessWidget {
     BuildContext parentContext, {
     CustomerVehicleModel? vehicleToEdit,
   }) {
+    // ... [Content identical to original file]
     final bool isEditing = vehicleToEdit != null;
     final formKey = GlobalKey<FormState>();
     final plateCtrl = TextEditingController(
@@ -1104,7 +1126,6 @@ class _ProfileTabs extends StatelessWidget {
                     'licensePlate': plateCtrl.text,
                     'isDefault': isDefault,
                   };
-
                   if (isEditing) {
                     bloc.add(
                       EditCustomerVehicle(
