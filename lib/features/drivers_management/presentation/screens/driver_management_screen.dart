@@ -12,7 +12,6 @@ import '../bloc/driver_management_bloc.dart';
 import '../../data/models/driver_management_models.dart';
 
 class DriverManagementScreen extends StatelessWidget {
-  // --- NEW: Added parameter for Live Radar Integration ---
   final String? autoOpenDriverId;
   const DriverManagementScreen({super.key, this.autoOpenDriverId});
 
@@ -39,6 +38,9 @@ class _DriverManagementViewState extends State<_DriverManagementView>
   String _searchQuery = '';
   bool _hasAutoOpened = false;
 
+  // FIX: Added a dedicated scroll controller for the persistent horizontal scrollbar
+  final ScrollController _scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
@@ -48,6 +50,7 @@ class _DriverManagementViewState extends State<_DriverManagementView>
   @override
   void dispose() {
     _tabController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -112,7 +115,6 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                 child:
                     BlocConsumer<DriverManagementBloc, DriverManagementState>(
                       listener: (context, state) {
-                        // --- NEW: Auto-open Driver Dossier from Live Radar ---
                         if (state is FleetLoaded &&
                             widget.autoOpenDriverId != null &&
                             !_hasAutoOpened) {
@@ -222,11 +224,15 @@ class _DriverManagementViewState extends State<_DriverManagementView>
   }
 
   Widget _buildHeader(ThemeData theme, BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 16,
+      runSpacing: 16,
       children: [
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               'Fleet Operations',
@@ -244,7 +250,9 @@ class _DriverManagementViewState extends State<_DriverManagementView>
             ),
           ],
         ),
-        Row(
+        Wrap(
+          spacing: 16,
+          runSpacing: 16,
           children: [
             FilledButton.icon(
               style: FilledButton.styleFrom(
@@ -263,7 +271,6 @@ class _DriverManagementViewState extends State<_DriverManagementView>
               ),
               onPressed: () => _showManualOnboardDialog(context, theme),
             ),
-            const SizedBox(width: 16),
             Container(
               decoration: BoxDecoration(
                 color: theme.cardColor,
@@ -297,234 +304,291 @@ class _DriverManagementViewState extends State<_DriverManagementView>
         ),
       );
 
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.3)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        children: [
-          Container(
-            color: theme.primaryColor.withValues(alpha: 0.05),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: Text('DRIVER PROFILE', style: _headerStyle(theme)),
-                ),
-                Expanded(
-                  flex: 3,
-                  child: Text('ASSIGNED VEHICLE', style: _headerStyle(theme)),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Text('LIVE STATUS', style: _headerStyle(theme)),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    'MANAGEMENT',
-                    style: _headerStyle(theme),
-                    textAlign: TextAlign.right,
-                  ),
-                ),
-              ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Container(
+          decoration: BoxDecoration(
+            color: theme.cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: theme.dividerColor.withValues(alpha: 0.3),
             ),
           ),
-          Divider(
-            height: 1,
-            thickness: 1,
-            color: theme.dividerColor.withValues(alpha: 0.3),
-          ),
-          Expanded(
-            child: ListView.separated(
-              itemCount: activeFleet.length,
-              separatorBuilder: (_, __) => Divider(
-                height: 1,
-                thickness: 1,
-                color: theme.dividerColor.withValues(alpha: 0.2),
-              ),
-              itemBuilder: (context, index) {
-                final d = activeFleet[index];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 16,
-                  ),
-                  child: Row(
+          clipBehavior: Clip.antiAlias,
+          // FIX: Added persistent Scrollbar so the user knows they can swipe right
+          child: Scrollbar(
+            controller: _scrollController,
+            thumbVisibility: true,
+            trackVisibility: true,
+            thickness: 8,
+            radius: const Radius.circular(8),
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                child: SizedBox(
+                  // FIX: Increased minimum safe width from 900 to 1100 to prevent internal flex crashing
+                  width: constraints.maxWidth < 1100
+                      ? 1100
+                      : constraints.maxWidth,
+                  child: Column(
                     children: [
-                      Expanded(
-                        flex: 3,
+                      Container(
+                        color: theme.primaryColor.withValues(alpha: 0.05),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 16,
+                        ),
                         child: Row(
                           children: [
-                            CircleAvatar(
-                              radius: 20,
-                              backgroundColor: theme.primaryColor.withValues(
-                                alpha: 0.1,
-                              ),
-                              child: Icon(
-                                Icons.engineering,
-                                color: theme.primaryColor,
+                            Expanded(
+                              flex: 3,
+                              child: Text(
+                                'DRIVER PROFILE',
+                                style: _headerStyle(theme),
                               ),
                             ),
-                            const SizedBox(width: 16),
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              flex: 3,
+                              child: Text(
+                                'ASSIGNED VEHICLE',
+                                style: _headerStyle(theme),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                'LIVE STATUS',
+                                style: _headerStyle(theme),
+                              ),
+                            ),
+                            Expanded(
+                              // FIX: Increased flex ratio from 2 to 3 for buttons
+                              flex: 3,
+                              child: Text(
+                                'MANAGEMENT',
+                                style: _headerStyle(theme),
+                                textAlign: TextAlign.right,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: theme.dividerColor.withValues(alpha: 0.3),
+                      ),
+                      Expanded(
+                        child: ListView.separated(
+                          itemCount: activeFleet.length,
+                          separatorBuilder: (_, __) => Divider(
+                            height: 1,
+                            thickness: 1,
+                            color: theme.dividerColor.withValues(alpha: 0.2),
+                          ),
+                          itemBuilder: (context, index) {
+                            final d = activeFleet[index];
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 16,
+                              ),
+                              child: Row(
                                 children: [
-                                  Text(
-                                    d.fullName,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
-                                      color: theme.colorScheme.onSurface,
+                                  Expanded(
+                                    flex: 3,
+                                    child: Row(
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 20,
+                                          backgroundColor: theme.primaryColor
+                                              .withValues(alpha: 0.1),
+                                          child: Icon(
+                                            Icons.engineering,
+                                            color: theme.primaryColor,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                d.fullName,
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 15,
+                                                  color: theme
+                                                      .colorScheme
+                                                      .onSurface,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              Text(
+                                                d.phoneNumber,
+                                                style: TextStyle(
+                                                  color: theme
+                                                      .colorScheme
+                                                      .onSurface
+                                                      .withValues(alpha: 0.6),
+                                                  fontSize: 12,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  Text(
-                                    d.phoneNumber,
-                                    style: TextStyle(
-                                      color: theme.colorScheme.onSurface
-                                          .withValues(alpha: 0.6),
-                                      fontSize: 12,
+                                  Expanded(
+                                    flex: 3,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          d.vehicleSummary,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w500,
+                                            color: theme.colorScheme.onSurface,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        Text(
+                                          d.truckTypeText,
+                                          style: const TextStyle(
+                                            color: Colors.blue,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
                                     ),
-                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Chip(
+                                        label: Text(
+                                          d.isSuspended
+                                              ? 'Suspended'
+                                              : d.isOnJob
+                                              ? 'On Job'
+                                              : d.isOnline
+                                              ? 'Available'
+                                              : 'Offline',
+                                          style: TextStyle(
+                                            color: d.isSuspended
+                                                ? Colors.red.shade800
+                                                : d.isOnJob
+                                                ? Colors.orange.shade800
+                                                : d.isOnline
+                                                ? Colors.green.shade700
+                                                : Colors.grey.shade700,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                        backgroundColor:
+                                            (d.isSuspended
+                                                    ? Colors.red
+                                                    : d.isOnJob
+                                                    ? Colors.orange
+                                                    : d.isOnline
+                                                    ? Colors.green
+                                                    : Colors.grey)
+                                                .withValues(alpha: 0.1),
+                                        side: BorderSide.none,
+                                        padding: EdgeInsets.zero,
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 3, // FIX: Match increased header flex
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.phone_in_talk,
+                                            color: Colors.green,
+                                            size: 20,
+                                          ),
+                                          tooltip: 'Call Driver via Agora',
+                                          onPressed: () => triggerVoiceCall(
+                                            context: context,
+                                            dioClient: sl<DioClient>(),
+                                            receiverUserId: d.driverProfileId,
+                                            currentUserId: 'ADMIN',
+                                            receiverName: d.fullName,
+                                            reason:
+                                                'Fleet Operations Dispatch Communication',
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        IconButton(
+                                          icon: Icon(
+                                            d.isSuspended
+                                                ? Icons.restore
+                                                : Icons.block,
+                                            color: d.isSuspended
+                                                ? Colors.blue
+                                                : theme.colorScheme.error,
+                                            size: 20,
+                                          ),
+                                          tooltip: d.isSuspended
+                                              ? 'Reactivate Driver'
+                                              : 'Suspend Driver',
+                                          onPressed: () => context
+                                              .read<DriverManagementBloc>()
+                                              .add(
+                                                ToggleDriverStatus(
+                                                  driverProfileId:
+                                                      d.driverProfileId,
+                                                  isSuspended: !d.isSuspended,
+                                                ),
+                                              ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        FilledButton.tonalIcon(
+                                          icon: const Icon(
+                                            Icons.folder_shared,
+                                            size: 16,
+                                          ),
+                                          label: const Text('Manage'),
+                                          onPressed: () =>
+                                              _showActiveDriverDossier(
+                                                context,
+                                                d,
+                                                theme,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        flex: 3,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              d.vehicleSummary,
-                              style: TextStyle(
-                                fontWeight: FontWeight.w500,
-                                color: theme.colorScheme.onSurface,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Text(
-                              d.truckTypeText,
-                              style: const TextStyle(
-                                color: Colors.blue,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        flex: 2,
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Chip(
-                            label: Text(
-                              d.isSuspended
-                                  ? 'Suspended'
-                                  : d.isOnJob
-                                  ? 'On Job'
-                                  : d.isOnline
-                                  ? 'Available'
-                                  : 'Offline',
-                              style: TextStyle(
-                                color: d.isSuspended
-                                    ? Colors.red.shade800
-                                    : d.isOnJob
-                                    ? Colors.orange.shade800
-                                    : d.isOnline
-                                    ? Colors.green.shade700
-                                    : Colors.grey.shade700,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 11,
-                              ),
-                            ),
-                            backgroundColor:
-                                (d.isSuspended
-                                        ? Colors.red
-                                        : d.isOnJob
-                                        ? Colors.orange
-                                        : d.isOnline
-                                        ? Colors.green
-                                        : Colors.grey)
-                                    .withValues(alpha: 0.1),
-                            side: BorderSide.none,
-                            padding: EdgeInsets.zero,
-                            visualDensity: VisualDensity.compact,
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        flex: 2,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            IconButton(
-                              icon: const Icon(
-                                Icons.phone_in_talk,
-                                color: Colors.green,
-                                size: 20,
-                              ),
-                              tooltip: 'Call Driver via Agora',
-                              onPressed: () => triggerVoiceCall(
-                                context: context,
-                                dioClient: sl<DioClient>(),
-                                receiverUserId: d.driverProfileId,
-                                currentUserId: 'ADMIN',
-                                receiverName: d.fullName,
-                                reason:
-                                    'Fleet Operations Dispatch Communication',
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            IconButton(
-                              icon: Icon(
-                                d.isSuspended ? Icons.restore : Icons.block,
-                                color: d.isSuspended
-                                    ? Colors.blue
-                                    : theme.colorScheme.error,
-                                size: 20,
-                              ),
-                              tooltip: d.isSuspended
-                                  ? 'Reactivate Driver'
-                                  : 'Suspend Driver',
-                              onPressed: () =>
-                                  context.read<DriverManagementBloc>().add(
-                                    ToggleDriverStatus(
-                                      driverProfileId: d.driverProfileId,
-                                      isSuspended: !d.isSuspended,
-                                    ),
-                                  ),
-                            ),
-                            const SizedBox(width: 8),
-                            FilledButton.tonalIcon(
-                              icon: const Icon(Icons.folder_shared, size: 16),
-                              label: const Text('Manage'),
-                              onPressed: () =>
-                                  _showActiveDriverDossier(context, d, theme),
-                            ),
-                          ],
+                            );
+                          },
                         ),
                       ),
                     ],
                   ),
-                );
-              },
+                ),
+              ),
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -569,7 +633,9 @@ class _DriverManagementViewState extends State<_DriverManagementView>
     }
     return ResponsiveBuilder(
       builder: (context, sizingInfo) {
-        int crossAxisCount = sizingInfo.isDesktop ? 3 : 2;
+        int crossAxisCount = sizingInfo.isDesktop
+            ? 3
+            : (sizingInfo.isTablet ? 2 : 1);
         return GridView.builder(
           padding: const EdgeInsets.only(top: 8),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -591,7 +657,6 @@ class _DriverManagementViewState extends State<_DriverManagementView>
     FleetDriverModel driver,
     ThemeData theme,
   ) {
-    // ... [Content identical to original file]
     return Card(
       elevation: 0,
       color: theme.cardColor,
@@ -698,7 +763,6 @@ class _DriverManagementViewState extends State<_DriverManagementView>
     FleetDriverModel driver,
     ThemeData theme,
   ) {
-    // ... [Content identical to original file]
     final docs = driver.documents;
     final vehicle = driver.vehicleDetails;
     final bloc = parentContext.read<DriverManagementBloc>();
@@ -1049,7 +1113,6 @@ class _DriverManagementViewState extends State<_DriverManagementView>
     FleetDriverModel driver,
     ThemeData theme,
   ) {
-    // ... [Content identical to original file]
     final docs = driver.documents;
     final vehicle = driver.vehicleDetails;
     final bloc = parentContext.read<DriverManagementBloc>();
@@ -1489,7 +1552,6 @@ class _DriverManagementViewState extends State<_DriverManagementView>
   };
 
   void _showManualOnboardDialog(BuildContext parentContext, ThemeData theme) {
-    // ... [Content identical to original file]
     final formKey = GlobalKey<FormState>();
     final bloc = parentContext.read<DriverManagementBloc>();
 
@@ -1750,8 +1812,9 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                         ),
                                       ),
                                     ],
-                                    onChanged: (val) =>
-                                        setModalState(() => truckType = val!),
+                                    onChanged: (val) => setModalState(
+                                      () => truckType = val ?? 1,
+                                    ),
                                   ),
                                   const SizedBox(height: 16),
                                   Row(
@@ -1857,7 +1920,8 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                               )
                                               .toList(),
                                           onChanged: (val) => setModalState(
-                                            () => selectedYear = val!,
+                                            () => selectedYear =
+                                                val ?? DateTime.now().year,
                                           ),
                                         ),
                                       ),
@@ -1895,7 +1959,8 @@ class _DriverManagementViewState extends State<_DriverManagementView>
                                                   )
                                                   .toList(),
                                           onChanged: (val) => setModalState(
-                                            () => selectedFuel = val!,
+                                            () =>
+                                                selectedFuel = val ?? 'Diesel',
                                           ),
                                         ),
                                       ),
@@ -1977,7 +2042,6 @@ class _DriverManagementViewState extends State<_DriverManagementView>
     FleetDriverModel driver,
     ThemeData theme,
   ) {
-    // ... [Content identical to original file]
     final formKey = GlobalKey<FormState>();
     final bloc = parentContext.read<DriverManagementBloc>();
 

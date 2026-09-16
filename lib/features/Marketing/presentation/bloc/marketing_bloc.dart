@@ -93,32 +93,52 @@ class MarketingBloc extends Bloc<MarketingEvent, MarketingState> {
       emit(MarketingLoading());
       try {
         final responses = await Future.wait([
+          // FIX: Added required path and default 200 status to prevent Dio from crashing on fallback
           dioClient.dio
               .get('/api/marketing/campaigns')
               .catchError(
-                (_) => Response(requestOptions: RequestOptions(), data: []),
+                (_) => Response(
+                  requestOptions: RequestOptions(path: ''),
+                  statusCode: 200,
+                  data: [],
+                ),
               ),
           dioClient.dio
               .get('/api/marketing/emails/history')
               .catchError(
-                (_) => Response(requestOptions: RequestOptions(), data: []),
+                (_) => Response(
+                  requestOptions: RequestOptions(path: ''),
+                  statusCode: 200,
+                  data: [],
+                ),
               ),
           dioClient.dio
               .get('/api/marketing/notifications/history')
               .catchError(
-                (_) => Response(requestOptions: RequestOptions(), data: []),
+                (_) => Response(
+                  requestOptions: RequestOptions(path: ''),
+                  statusCode: 200,
+                  data: [],
+                ),
               ),
         ]);
 
-        final campaigns = (responses[0].data as List)
-            .map((j) => MarketingCampaignModel.fromJson(j))
-            .toList();
-        final emailLogs = (responses[1].data as List)
-            .map((j) => EmailLogModel.fromJson(j))
-            .toList();
-        final notificationLogs = (responses[2].data as List)
-            .map((j) => NotificationLogModel.fromJson(j))
-            .toList();
+        // FIX: Safely cast as List<dynamic>? to prevent type errors from backend
+        final campaigns =
+            (responses[0].data as List<dynamic>?)
+                ?.map((j) => MarketingCampaignModel.fromJson(j))
+                .toList() ??
+            [];
+        final emailLogs =
+            (responses[1].data as List<dynamic>?)
+                ?.map((j) => EmailLogModel.fromJson(j))
+                .toList() ??
+            [];
+        final notificationLogs =
+            (responses[2].data as List<dynamic>?)
+                ?.map((j) => NotificationLogModel.fromJson(j))
+                .toList() ??
+            [];
 
         emit(MarketingLoaded(campaigns, emailLogs, notificationLogs));
       } catch (e) {

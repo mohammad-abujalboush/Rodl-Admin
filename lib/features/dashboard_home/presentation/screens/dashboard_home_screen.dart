@@ -18,9 +18,10 @@ class DashboardHomeScreen extends StatefulWidget {
 class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
+  // FIX: Defaulted to All-Time so historical test data actually loads
   DashboardFilterModel _currentFilter = DashboardFilterModel(
-    startDate: DateTime.now().subtract(const Duration(days: 7)),
-    endDate: DateTime.now(),
+    startDate: null,
+    endDate: null,
   );
 
   void _applyFilter(DashboardFilterModel newFilter) {
@@ -40,7 +41,6 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
           sl<DashboardBloc>()..add(FetchDashboardKpis(filter: _currentFilter)),
       child: Scaffold(
         key: _scaffoldKey,
-        // FIX: Replaced surfaceVariant for better Light Mode contrast
         backgroundColor: theme.colorScheme.surface,
         endDrawer: _AdvancedFilterDrawer(
           currentFilter: _currentFilter,
@@ -48,7 +48,9 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
         ),
         body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(32.0),
+            padding: EdgeInsets.all(
+              MediaQuery.of(context).size.width < 600 ? 16.0 : 32.0,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -95,6 +97,11 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
                         );
                       }
                       if (state is DashboardLoaded) {
+                        // DEBUG LOG: Watch your terminal to verify data is arriving
+                        debugPrint(
+                          "DASHBOARD DATA LOADED: Revenue: \$${state.kpis.totalRevenue}, Tows: ${state.kpis.activeTows}",
+                        );
+
                         return SingleChildScrollView(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -158,30 +165,32 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
   }
 
   Widget _buildHeader(ThemeData theme) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 16,
+      runSpacing: 16,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Command Center',
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurface,
-                ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Command Center',
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Full spectrum analysis of logistics, financials, and disputes.',
-                style: TextStyle(
-                  color: theme.colorScheme.onSurface.withOpacity(0.6),
-                  fontSize: 16,
-                ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Full spectrum analysis of logistics, financials, and disputes.',
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                fontSize: 16,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
         FilledButton.icon(
           icon: const Icon(Icons.tune),
@@ -213,8 +222,8 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: isAlert
-                ? theme.colorScheme.error.withOpacity(0.1)
-                : theme.primaryColor.withOpacity(0.1),
+                ? theme.colorScheme.error.withValues(alpha: 0.1)
+                : theme.primaryColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
@@ -243,7 +252,8 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
         final width = constraints.maxWidth;
         int columns = width > 1200 ? 4 : (width > 800 ? 2 : 1);
         final spacing = 20.0;
-        final cardWidth = (width - (spacing * (columns - 1))) / columns - 0.1;
+        final cardWidth = ((width - (spacing * (columns - 1))) / columns)
+            .floorToDouble();
 
         return Wrap(
           spacing: spacing,
@@ -325,7 +335,8 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
         final width = constraints.maxWidth;
         int columns = width > 1200 ? 3 : 1;
         final spacing = 20.0;
-        final cardWidth = (width - (spacing * (columns - 1))) / columns - 0.1;
+        final cardWidth = ((width - (spacing * (columns - 1))) / columns)
+            .floorToDouble();
 
         return Wrap(
           spacing: spacing,
@@ -406,10 +417,10 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
       decoration: BoxDecoration(
         color: theme.cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: theme.dividerColor.withOpacity(0.2)),
+        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.2)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -435,7 +446,7 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
                   show: true,
                   drawVerticalLine: false,
                   getDrawingHorizontalLine: (value) => FlLine(
-                    color: theme.dividerColor.withOpacity(0.5),
+                    color: theme.dividerColor.withValues(alpha: 0.5),
                     strokeWidth: 1,
                     dashArray: [5, 5],
                   ),
@@ -454,7 +465,9 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
                       getTitlesWidget: (value, meta) => Text(
                         currencyFormatter.format(value),
                         style: TextStyle(
-                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
+                          ),
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                         ),
@@ -473,8 +486,8 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
                             child: Text(
                               kpis.revenueTrend[value.toInt()].xLabel,
                               style: TextStyle(
-                                color: theme.colorScheme.onSurface.withOpacity(
-                                  0.6,
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.6,
                                 ),
                                 fontSize: 12,
                               ),
@@ -499,8 +512,8 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
                       show: true,
                       gradient: LinearGradient(
                         colors: [
-                          theme.primaryColor.withOpacity(0.2),
-                          theme.primaryColor.withOpacity(0.0),
+                          theme.primaryColor.withValues(alpha: 0.2),
+                          theme.primaryColor.withValues(alpha: 0.0),
                         ],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
@@ -522,10 +535,10 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
       decoration: BoxDecoration(
         color: theme.cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: theme.dividerColor.withOpacity(0.2)),
+        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.2)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -550,7 +563,9 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
                     child: Text(
                       'No data for selected filters',
                       style: TextStyle(
-                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.6,
+                        ),
                       ),
                     ),
                   )
@@ -586,7 +601,9 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
                               color: theme.cardColor,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: theme.dividerColor.withOpacity(0.2),
+                                color: theme.dividerColor.withValues(
+                                  alpha: 0.2,
+                                ),
                               ),
                               boxShadow: const [
                                 BoxShadow(color: Colors.black12, blurRadius: 4),
@@ -621,10 +638,12 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
       decoration: BoxDecoration(
         color: theme.cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: theme.colorScheme.error.withOpacity(0.3)),
+        border: Border.all(
+          color: theme.colorScheme.error.withValues(alpha: 0.3),
+        ),
         boxShadow: [
           BoxShadow(
-            color: theme.colorScheme.error.withOpacity(0.05),
+            color: theme.colorScheme.error.withValues(alpha: 0.05),
             blurRadius: 15,
             offset: const Offset(0, 4),
           ),
@@ -639,7 +658,8 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
               constraints: BoxConstraints(minWidth: constraints.maxWidth),
               child: DataTable(
                 headingRowColor: WidgetStateProperty.resolveWith(
-                  (states) => theme.colorScheme.errorContainer.withOpacity(0.3),
+                  (states) =>
+                      theme.colorScheme.errorContainer.withValues(alpha: 0.3),
                 ),
                 dataRowMaxHeight: 70,
                 headingTextStyle: TextStyle(
@@ -663,7 +683,7 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
                           children: [
                             CircleAvatar(
                               backgroundColor: theme.colorScheme.error
-                                  .withOpacity(0.1),
+                                  .withValues(alpha: 0.1),
                               radius: 16,
                               child: Icon(
                                 Icons.person,
@@ -756,11 +776,11 @@ class _MetricCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cardColor = isAlert
-        ? theme.colorScheme.errorContainer.withOpacity(0.15)
+        ? theme.colorScheme.errorContainer.withValues(alpha: 0.15)
         : theme.cardColor;
     final borderColor = isAlert
-        ? theme.colorScheme.error.withOpacity(0.5)
-        : theme.dividerColor.withOpacity(0.2);
+        ? theme.colorScheme.error.withValues(alpha: 0.5)
+        : theme.dividerColor.withValues(alpha: 0.2);
     final iconColor =
         highlightColor ??
         (isAlert ? theme.colorScheme.error : theme.primaryColor);
@@ -772,7 +792,7 @@ class _MetricCard extends StatelessWidget {
         border: Border.all(color: borderColor, width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -791,7 +811,7 @@ class _MetricCard extends StatelessWidget {
                 child: Text(
                   title,
                   style: theme.textTheme.titleSmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.6),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                     fontWeight: FontWeight.bold,
                     letterSpacing: 0.5,
                   ),
@@ -817,7 +837,7 @@ class _MetricCard extends StatelessWidget {
                   child: Icon(
                     Icons.info_outline,
                     size: 12,
-                    color: theme.colorScheme.onSurface.withOpacity(0.6),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                 ),
               ),
@@ -844,7 +864,7 @@ class _MetricCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.1),
+                  color: iconColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, color: iconColor, size: 28),
@@ -906,7 +926,7 @@ class _AdvancedFilterDrawerState extends State<_AdvancedFilterDrawer> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: theme.primaryColor.withOpacity(0.1),
+                      color: theme.primaryColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(Icons.tune, color: theme.primaryColor),
@@ -922,7 +942,10 @@ class _AdvancedFilterDrawerState extends State<_AdvancedFilterDrawer> {
                 ],
               ),
             ),
-            Divider(height: 1, color: theme.dividerColor.withOpacity(0.2)),
+            Divider(
+              height: 1,
+              color: theme.dividerColor.withValues(alpha: 0.2),
+            ),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.all(24),
@@ -945,7 +968,7 @@ class _AdvancedFilterDrawerState extends State<_AdvancedFilterDrawer> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             side: BorderSide(
-                              color: theme.dividerColor.withOpacity(0.5),
+                              color: theme.dividerColor.withValues(alpha: 0.5),
                             ),
                           ),
                           icon: Icon(
@@ -981,7 +1004,7 @@ class _AdvancedFilterDrawerState extends State<_AdvancedFilterDrawer> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             side: BorderSide(
-                              color: theme.dividerColor.withOpacity(0.5),
+                              color: theme.dividerColor.withValues(alpha: 0.5),
                             ),
                           ),
                           icon: Icon(
@@ -1024,7 +1047,6 @@ class _AdvancedFilterDrawerState extends State<_AdvancedFilterDrawer> {
                     spacing: 12,
                     runSpacing: 12,
                     children: [
-                      // FIX: Mapped to the new AppEnums.cs values
                       _buildIntFilterChip('Wheel-Lift', 1, _selectedServices),
                       _buildIntFilterChip('Flatbed', 2, _selectedServices),
                       _buildIntFilterChip('Jump Start', 6, _selectedServices),
@@ -1046,7 +1068,6 @@ class _AdvancedFilterDrawerState extends State<_AdvancedFilterDrawer> {
                     spacing: 12,
                     runSpacing: 12,
                     children: [
-                      // FIX: Mapped to the new AppEnums.cs values
                       _buildIntFilterChip(
                         'Pending Dispatch',
                         0,
@@ -1110,7 +1131,7 @@ class _AdvancedFilterDrawerState extends State<_AdvancedFilterDrawer> {
       label: Text(label),
       selected: isSelected,
       showCheckmark: false,
-      selectedColor: theme.primaryColor.withOpacity(0.15),
+      selectedColor: theme.primaryColor.withValues(alpha: 0.15),
       backgroundColor: theme.cardColor,
       labelStyle: TextStyle(
         color: isSelected ? theme.primaryColor : theme.colorScheme.onSurface,
@@ -1119,7 +1140,7 @@ class _AdvancedFilterDrawerState extends State<_AdvancedFilterDrawer> {
       side: BorderSide(
         color: isSelected
             ? theme.primaryColor
-            : theme.dividerColor.withOpacity(0.5),
+            : theme.dividerColor.withValues(alpha: 0.5),
         width: isSelected ? 2 : 1,
       ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

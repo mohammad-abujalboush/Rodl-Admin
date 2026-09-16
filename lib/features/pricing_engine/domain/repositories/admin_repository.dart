@@ -22,4 +22,6 @@ abstract class AdminRepository {
 
   // Audit Logs (Note 12)
   Future<List<dynamic>> getAuditLogs();
+
+  Future<void> updatePromotion(String id, Map<String, dynamic> data);
 }

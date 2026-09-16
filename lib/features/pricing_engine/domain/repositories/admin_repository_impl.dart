@@ -145,4 +145,13 @@ class AdminRepositoryImpl implements AdminRepository {
       return [];
     }
   }
+
+  @override
+  Future<void> updatePromotion(String id, Map<String, dynamic> data) async {
+    try {
+      await _dioClient.dio.put('/api/admin/promotions/$id', data: data);
+    } catch (e) {
+      throw Exception('Failed to update promotion');
+    }
+  }
 }

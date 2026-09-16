@@ -28,33 +28,63 @@ class FleetDriverModel {
 
   factory FleetDriverModel.fromJson(Map<String, dynamic> json) {
     return FleetDriverModel(
-      driverProfileId: (json['driverId'] ?? json['driverProfileId'] ?? '')
-          .toString(),
-      fullName: json['fullName'] ?? 'Unknown',
-      phoneNumber: json['phone'] ?? json['phoneNumber'] ?? 'No Phone',
-      email: json['email'] ?? '',
-      appliedAt: json['appliedAt'] != null
-          ? DateTime.parse(json['appliedAt'])
-          : DateTime.now(),
-      isApproved: json['isApproved'] ?? (json['driverId'] != null),
-      isOnJob: json['isOnJob'] ?? false,
-      isOnline: json['isOnline'] ?? false,
-      isSuspended: json['isSuspended'] ?? false,
+      // FIX: Added robust PascalCase checks to capture backend data
+      driverProfileId:
+          (json['driverId'] ??
+                  json['DriverId'] ??
+                  json['driverProfileId'] ??
+                  json['DriverProfileId'] ??
+                  '')
+              .toString(),
+      fullName: json['fullName'] ?? json['FullName'] ?? 'Unknown',
+      phoneNumber:
+          json['phone'] ??
+          json['phoneNumber'] ??
+          json['PhoneNumber'] ??
+          'No Phone',
+      email: json['email'] ?? json['Email'] ?? '',
+      appliedAt:
+          DateTime.tryParse(json['appliedAt'] ?? json['AppliedAt'] ?? '') ??
+          DateTime.now(),
+      isApproved:
+          json['isApproved'] ??
+          json['IsApproved'] ??
+          (json['driverId'] != null || json['DriverId'] != null),
+      isOnJob: json['isOnJob'] ?? json['IsOnJob'] ?? false,
+      isOnline: json['isOnline'] ?? json['IsOnline'] ?? false,
+      isSuspended: json['isSuspended'] ?? json['IsSuspended'] ?? false,
+
+      // Document mapping handles both camelCase and PascalCase variations
       documents: {
-        'Government ID': json['documents']?['governmentId'],
-        'Driving License': json['documents']?['drivingLicense'],
-        'Commercial Insurance': json['documents']?['insurance'],
-        'Background Check': json['documents']?['backgroundCheck'],
+        'Government ID':
+            json['documents']?['governmentId'] ??
+            json['Documents']?['governmentId'] ??
+            json['Documents']?['GovernmentId'],
+        'Driving License':
+            json['documents']?['drivingLicense'] ??
+            json['Documents']?['drivingLicense'] ??
+            json['Documents']?['DrivingLicense'],
+        'Commercial Insurance':
+            json['documents']?['insurance'] ??
+            json['Documents']?['insurance'] ??
+            json['Documents']?['CommercialInsurance'],
+        'Background Check':
+            json['documents']?['backgroundCheck'] ??
+            json['Documents']?['backgroundCheck'] ??
+            json['Documents']?['BackgroundCheck'],
       },
+
+      // Vehicle parsing safely extracts deeply nested dictionary items
       vehicleDetails:
           json['vehicleDetails'] ??
-          (json['vehicleMake'] != null
+          json['VehicleDetails'] ??
+          (json['vehicleMake'] != null || json['VehicleMake'] != null
               ? {
-                  'make': json['vehicleMake'],
-                  'model': json['vehicleModel'],
-                  'year': json['vehicleYear'],
-                  'licensePlate': json['licensePlate'],
-                  'truckType': json['truckType'],
+                  'make': json['vehicleMake'] ?? json['VehicleMake'],
+                  'model': json['vehicleModel'] ?? json['VehicleModel'],
+                  'year': json['vehicleYear'] ?? json['VehicleYear'],
+                  'licensePlate': json['licensePlate'] ?? json['LicensePlate'],
+                  'truckType': json['truckType'] ?? json['TruckType'],
                 }
               : null),
     );
@@ -64,7 +94,13 @@ class FleetDriverModel {
 
   String get truckTypeText {
     if (vehicleDetails == null) return 'No Vehicle Assigned';
-    final int type = vehicleDetails!['truckType'] ?? 1;
+
+    // Safety cast to handle strings coming back from some JSON serializers
+    final dynamic typeRaw =
+        vehicleDetails!['truckType'] ?? vehicleDetails!['TruckType'];
+    final int type = typeRaw is int
+        ? typeRaw
+        : int.tryParse(typeRaw.toString()) ?? 1;
 
     switch (type) {
       case 1:
@@ -86,6 +122,13 @@ class FleetDriverModel {
 
   String get vehicleSummary {
     if (vehicleDetails == null) return 'Pending Assignment';
-    return '${vehicleDetails!['year']} ${vehicleDetails!['make']} ${vehicleDetails!['model']}';
+
+    final year = vehicleDetails!['year'] ?? vehicleDetails!['Year'] ?? '0000';
+    final make =
+        vehicleDetails!['make'] ?? vehicleDetails!['Make'] ?? 'Unknown';
+    final model =
+        vehicleDetails!['model'] ?? vehicleDetails!['Model'] ?? 'Vehicle';
+
+    return '$year $make $model';
   }
 }

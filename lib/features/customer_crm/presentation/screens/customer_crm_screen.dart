@@ -9,7 +9,6 @@ import '../../../../core/di/injection_container.dart';
 import '../bloc/customer_crm_bloc.dart';
 
 class CustomerCrmScreen extends StatefulWidget {
-  // --- NEW: Added parameter to accept incoming requests from Live Radar ---
   final String? autoOpenCustomerId;
   const CustomerCrmScreen({super.key, this.autoOpenCustomerId});
 
@@ -19,7 +18,7 @@ class CustomerCrmScreen extends StatefulWidget {
 
 class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
   String _searchQuery = '';
-  bool _hasAutoOpened = false; // Prevents infinite loop re-opening
+  bool _hasAutoOpened = false;
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +39,6 @@ class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
                 Expanded(
                   child: BlocConsumer<CustomerCrmBloc, CustomerCrmState>(
                     listener: (context, state) {
-                      // --- NEW: Auto-open logic for Live Radar Integration ---
                       if (state is CustomersLoaded &&
                           widget.autoOpenCustomerId != null &&
                           !_hasAutoOpened) {
@@ -100,33 +98,38 @@ class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
   }
 
   Widget _buildHeader(ThemeData theme, BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 16,
+      runSpacing: 16,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Customer Profiles (CRM)',
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurface,
-                ),
-                overflow: TextOverflow.ellipsis,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Customer Profiles (CRM)',
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Manage identities, fleets, and lifetime value.',
-                style: TextStyle(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                  fontSize: 16,
-                ),
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Manage identities, fleets, and lifetime value.',
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                fontSize: 16,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-        Row(
+        Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             SizedBox(
               width: 300,
@@ -147,7 +150,6 @@ class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
                     setState(() => _searchQuery = val.toLowerCase()),
               ),
             ),
-            const SizedBox(width: 16),
             Builder(
               builder: (innerContext) => FilledButton.icon(
                 style: FilledButton.styleFrom(
@@ -174,109 +176,132 @@ class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
   }
 
   Widget _buildDesktopTable(List<CustomerModel> customers, ThemeData theme) {
-    return Card(
-      elevation: 0,
-      color: theme.cardColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.3)),
-      ),
-      child: ListView.separated(
-        itemCount: customers.length,
-        separatorBuilder: (_, __) => Divider(
-          height: 1,
-          color: theme.dividerColor.withValues(alpha: 0.3),
-        ),
-        itemBuilder: (ctx, i) {
-          final c = customers[i];
-          return ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 24,
-              vertical: 12,
-            ),
-            leading: CircleAvatar(
-              backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
-              child: Text(
-                c.fullName.substring(0, 1).toUpperCase(),
-                style: TextStyle(
-                  color: theme.primaryColor,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            title: Text(
-              c.fullName,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.onSurface,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-            subtitle: Text(
-              '${c.phone} • Joined ${DateFormat('MMM dd, yyyy').format(c.joinedAt)}',
-              style: TextStyle(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton.filledTonal(
-                  icon: const Icon(Icons.phone_in_talk, color: Colors.green),
-                  tooltip: 'Voice Call via Agora',
-                  onPressed: () => triggerVoiceCall(
-                    context: ctx,
-                    dioClient: sl<DioClient>(),
-                    receiverUserId: c.id,
-                    currentUserId: 'ADMIN',
-                    receiverName: c.fullName,
-                    reason: 'CRM Direct Account Follow-up',
+    // FIX 1: Added LayoutBuilder to prevent horizontal layout crashes
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Card(
+          elevation: 0,
+          color: theme.cardColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.3)),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: constraints.maxWidth),
+              child: SizedBox(
+                width: constraints.maxWidth < 800 ? 800 : constraints.maxWidth,
+                child: ListView.separated(
+                  itemCount: customers.length,
+                  separatorBuilder: (_, __) => Divider(
+                    height: 1,
+                    color: theme.dividerColor.withValues(alpha: 0.3),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '\$${c.totalSpent.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green,
-                        fontSize: 15,
+                  itemBuilder: (ctx, i) {
+                    final c = customers[i];
+                    return ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
                       ),
-                    ),
-                    Text(
-                      '${c.totalRequests} Jobs',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.5,
+                      leading: CircleAvatar(
+                        backgroundColor: theme.primaryColor.withValues(
+                          alpha: 0.1,
+                        ),
+                        child: Text(
+                          c.fullName.isNotEmpty
+                              ? c.fullName.substring(0, 1).toUpperCase()
+                              : 'C',
+                          style: TextStyle(
+                            color: theme.primaryColor,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 24),
-                FilledButton.tonal(
-                  onPressed: () {
-                    ctx.read<CustomerCrmBloc>().add(
-                      FetchCustomerProfile(customerId: c.id),
+                      title: Text(
+                        c.fullName,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        '${c.phone} • Joined ${DateFormat('MMM dd, yyyy').format(c.joinedAt)}',
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
+                          ),
+                        ),
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton.filledTonal(
+                            icon: const Icon(
+                              Icons.phone_in_talk,
+                              color: Colors.green,
+                            ),
+                            tooltip: 'Voice Call via Agora',
+                            onPressed: () => triggerVoiceCall(
+                              context: ctx,
+                              dioClient: sl<DioClient>(),
+                              receiverUserId: c.id,
+                              currentUserId: 'ADMIN',
+                              receiverName: c.fullName,
+                              reason: 'CRM Direct Account Follow-up',
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                '\$${c.totalSpent.toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              Text(
+                                '${c.totalRequests} Jobs',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(width: 24),
+                          FilledButton.tonal(
+                            onPressed: () {
+                              ctx.read<CustomerCrmBloc>().add(
+                                FetchCustomerProfile(customerId: c.id),
+                              );
+                              _showProfileModal(ctx, theme);
+                            },
+                            child: const Text('Manage'),
+                          ),
+                        ],
+                      ),
                     );
-                    _showProfileModal(ctx, theme);
                   },
-                  child: const Text('Manage'),
                 ),
-              ],
+              ),
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 
   void _showCreateCustomerForm(BuildContext parentContext, ThemeData theme) {
-    // ... [Content identical to original file]
     final bloc = parentContext.read<CustomerCrmBloc>();
     final formKey = GlobalKey<FormState>();
     final nameCtrl = TextEditingController();
@@ -399,7 +424,6 @@ class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
   }
 
   void _showProfileModal(BuildContext parentContext, ThemeData theme) {
-    // ... [Content identical to original file]
     final customerCrmBloc = parentContext.read<CustomerCrmBloc>();
 
     showGeneralDialog(
@@ -467,16 +491,23 @@ class _ProfileTabs extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            runAlignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 16,
+            runSpacing: 16,
             children: [
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   CircleAvatar(
                     radius: 30,
                     backgroundColor: theme.primaryColor.withValues(alpha: 0.2),
                     child: Text(
-                      profile.customer.fullName.substring(0, 1),
+                      profile.customer.fullName.isNotEmpty
+                          ? profile.customer.fullName.substring(0, 1)
+                          : 'C',
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -506,7 +537,9 @@ class _ProfileTabs extends StatelessWidget {
                   ),
                 ],
               ),
-              Row(
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
                 children: [
                   FilledButton.icon(
                     style: FilledButton.styleFrom(
@@ -531,7 +564,6 @@ class _ProfileTabs extends StatelessWidget {
                       reason: 'Customer Dossier Inquiry',
                     ),
                   ),
-                  const SizedBox(width: 12),
                   FilledButton.icon(
                     style: FilledButton.styleFrom(
                       backgroundColor: Colors.orange,
@@ -573,7 +605,6 @@ class _ProfileTabs extends StatelessWidget {
                       );
                     },
                   ),
-                  const SizedBox(width: 16),
                   IconButton(
                     icon: Icon(
                       Icons.close,
@@ -611,126 +642,139 @@ class _ProfileTabs extends StatelessWidget {
     );
   }
 
-  // --- Identity, Vehicle, and Job History Tabs are identical to the original file ---
   Widget _buildIdentityTab(BuildContext context) {
     final nameCtrl = TextEditingController(text: profile.customer.fullName);
     final phoneCtrl = TextEditingController(text: profile.customer.phone);
     final emailCtrl = TextEditingController(text: profile.customer.email);
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          flex: 2,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Update Secure Identity',
-                style: TextStyle(
-                  color: theme.colorScheme.onSurface,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isSmall = constraints.maxWidth < 600;
+
+        final editColumn = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Update Secure Identity',
+              style: TextStyle(
+                color: theme.colorScheme.onSurface,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: nameCtrl,
+              style: TextStyle(color: theme.colorScheme.onSurface),
+              decoration: InputDecoration(
+                labelText: 'Full Name',
+                filled: true,
+                fillColor: theme.scaffoldBackgroundColor,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: phoneCtrl,
+              style: TextStyle(color: theme.colorScheme.onSurface),
+              decoration: InputDecoration(
+                labelText: 'Phone',
+                filled: true,
+                fillColor: theme.scaffoldBackgroundColor,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: emailCtrl,
+              style: TextStyle(color: theme.colorScheme.onSurface),
+              decoration: InputDecoration(
+                labelText: 'Email',
+                filled: true,
+                fillColor: theme.scaffoldBackgroundColor,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              icon: const Icon(Icons.save),
+              label: const Text('Save Changes'),
+              onPressed: () => bloc.add(
+                UpdateCustomerInfo(
+                  customerId: profile.customer.id,
+                  fullName: nameCtrl.text,
+                  phone: phoneCtrl.text,
+                  email: emailCtrl.text,
                 ),
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: nameCtrl,
-                style: TextStyle(color: theme.colorScheme.onSurface),
-                decoration: InputDecoration(
-                  labelText: 'Full Name',
-                  filled: true,
-                  fillColor: theme.scaffoldBackgroundColor,
-                  border: const OutlineInputBorder(),
-                ),
+            ),
+          ],
+        );
+
+        final dangerColumn = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Danger Zone',
+              style: TextStyle(
+                color: Colors.redAccent,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: phoneCtrl,
-                style: TextStyle(color: theme.colorScheme.onSurface),
-                decoration: InputDecoration(
-                  labelText: 'Phone',
-                  filled: true,
-                  fillColor: theme.scaffoldBackgroundColor,
-                  border: const OutlineInputBorder(),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.orange,
+                  side: const BorderSide(color: Colors.orange),
+                  padding: const EdgeInsets.all(16),
                 ),
+                icon: const Icon(Icons.lock_reset),
+                label: const Text('Force Password Reset'),
+                onPressed: () {},
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: emailCtrl,
-                style: TextStyle(color: theme.colorScheme.onSurface),
-                decoration: InputDecoration(
-                  labelText: 'Email',
-                  filled: true,
-                  fillColor: theme.scaffoldBackgroundColor,
-                  border: const OutlineInputBorder(),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red),
+                  padding: const EdgeInsets.all(16),
                 ),
+                icon: const Icon(Icons.delete_forever),
+                label: const Text('Purge Customer Record'),
+                onPressed: () {
+                  bloc.add(DeleteCustomer(customerId: profile.customer.id));
+                  Navigator.pop(context);
+                },
               ),
-              const SizedBox(height: 24),
-              FilledButton.icon(
-                icon: const Icon(Icons.save),
-                label: const Text('Save Changes'),
-                onPressed: () => bloc.add(
-                  UpdateCustomerInfo(
-                    customerId: profile.customer.id,
-                    fullName: nameCtrl.text,
-                    phone: phoneCtrl.text,
-                    email: emailCtrl.text,
-                  ),
+            ),
+          ],
+        );
+
+        return SingleChildScrollView(
+          child: isSmall
+              ? Column(
+                  children: [
+                    editColumn,
+                    const SizedBox(height: 48),
+                    dangerColumn,
+                  ],
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 2, child: editColumn),
+                    const SizedBox(width: 48),
+                    Expanded(flex: 1, child: dangerColumn),
+                  ],
                 ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 48),
-        Expanded(
-          flex: 1,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Danger Zone',
-                style: TextStyle(
-                  color: Colors.redAccent,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.orange,
-                    side: const BorderSide(color: Colors.orange),
-                    padding: const EdgeInsets.all(16),
-                  ),
-                  icon: const Icon(Icons.lock_reset),
-                  label: const Text('Force Password Reset'),
-                  onPressed: () {},
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.red,
-                    side: const BorderSide(color: Colors.red),
-                    padding: const EdgeInsets.all(16),
-                  ),
-                  icon: const Icon(Icons.delete_forever),
-                  label: const Text('Purge Customer Record'),
-                  onPressed: () {
-                    bloc.add(DeleteCustomer(customerId: profile.customer.id));
-                    Navigator.pop(context);
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -954,7 +998,6 @@ class _ProfileTabs extends StatelessWidget {
     BuildContext parentContext, {
     CustomerVehicleModel? vehicleToEdit,
   }) {
-    // ... [Content identical to original file]
     final bool isEditing = vehicleToEdit != null;
     final formKey = GlobalKey<FormState>();
     final plateCtrl = TextEditingController(
@@ -962,6 +1005,9 @@ class _ProfileTabs extends StatelessWidget {
     );
     final colorCtrl = TextEditingController(text: vehicleToEdit?.color ?? '');
     bool isDefault = vehicleToEdit?.isDefault ?? false;
+
+    // FIX 2: Default the required boolean to false
+    bool requiresFlatbed = false;
 
     final Map<String, List<String>> brandDatabase = {
       'Toyota': ['Camry', 'Corolla', 'RAV4', 'Highlander', 'Tacoma'],
@@ -1105,6 +1151,25 @@ class _ProfileTabs extends StatelessWidget {
                       activeColor: theme.primaryColor,
                       onChanged: (v) => setModalState(() => isDefault = v),
                     ),
+                    SwitchListTile(
+                      title: Text(
+                        'Requires Flatbed Carrier',
+                        style: TextStyle(color: theme.colorScheme.onSurface),
+                      ),
+                      subtitle: Text(
+                        'Enable for AWD or Low Clearance.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
+                          ),
+                        ),
+                      ),
+                      value: requiresFlatbed,
+                      activeColor: Colors.orange,
+                      onChanged: (v) =>
+                          setModalState(() => requiresFlatbed = v),
+                    ),
                   ],
                 ),
               ),
@@ -1125,6 +1190,8 @@ class _ProfileTabs extends StatelessWidget {
                     'color': colorCtrl.text,
                     'licensePlate': plateCtrl.text,
                     'isDefault': isDefault,
+                    // FIX 2: Attached required backend variable
+                    'requiresFlatbed': requiresFlatbed,
                   };
                   if (isEditing) {
                     bloc.add(

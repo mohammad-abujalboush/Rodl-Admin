@@ -17,13 +17,24 @@ class DriverPayoutPreviewModel {
 
   factory DriverPayoutPreviewModel.fromJson(Map<String, dynamic> json) {
     return DriverPayoutPreviewModel(
-      driverId: json['driverProfileId'] ?? json['driverId'] ?? '',
-      driverName: json['driverName'] ?? 'Unknown Driver',
+      driverId:
+          json['driverProfileId'] ??
+          json['DriverProfileId'] ??
+          json['driverId'] ??
+          '',
+      driverName: json['driverName'] ?? json['DriverName'] ?? 'Unknown Driver',
       totalJobsCompleted:
-          json['unpaidJobCount'] ?? json['totalJobsCompleted'] ?? 0,
-      grossEarnings: (json['grossEarnings'] ?? 0).toDouble(),
-      platformFee: (json['platformFee'] ?? 0).toDouble(),
-      netPayout: (json['netPayout'] ?? 0).toDouble(),
+          json['unpaidJobCount'] ??
+          json['UnpaidJobCount'] ??
+          json['totalJobsCompleted'] ??
+          0,
+      grossEarnings:
+          ((json['grossEarnings'] ?? json['GrossEarnings'] ?? 0) as num)
+              .toDouble(),
+      platformFee: ((json['platformFee'] ?? json['PlatformFee'] ?? 0) as num)
+          .toDouble(),
+      netPayout: ((json['netPayout'] ?? json['NetPayout'] ?? 0) as num)
+          .toDouble(),
     );
   }
 }

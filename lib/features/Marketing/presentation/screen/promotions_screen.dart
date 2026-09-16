@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:roadside_service/features/pricing_engine/domain/repositories/admin_repository.dart';
 import '../../../../core/di/injection_container.dart';
 
@@ -43,6 +44,7 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
 
   void _showAddPromoDialog() {
     final theme = Theme.of(context);
+    final formKey = GlobalKey<FormState>();
     final codeCtrl = TextEditingController();
     final valueCtrl = TextEditingController();
     int type = 0; // 0 = Percentage, 1 = Flat
@@ -65,63 +67,72 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
             ),
             content: Container(
               constraints: const BoxConstraints(maxWidth: 400),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: codeCtrl,
-                    style: TextStyle(color: theme.colorScheme.onSurface),
-                    decoration: InputDecoration(
-                      labelText: 'Code (e.g., SUMMER20) *',
-                      filled: true,
-                      fillColor: theme.scaffoldBackgroundColor,
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<int>(
-                    value: type,
-                    dropdownColor: theme.cardColor,
-                    style: TextStyle(color: theme.colorScheme.onSurface),
-                    decoration: InputDecoration(
-                      labelText: 'Discount Type *',
-                      filled: true,
-                      fillColor: theme.scaffoldBackgroundColor,
-                      border: const OutlineInputBorder(),
-                    ),
-                    items: [
-                      DropdownMenuItem(
-                        value: 0,
-                        child: Text(
-                          'Percentage (%)',
-                          style: TextStyle(color: theme.colorScheme.onSurface),
-                        ),
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: codeCtrl,
+                      style: TextStyle(color: theme.colorScheme.onSurface),
+                      decoration: InputDecoration(
+                        labelText: 'Code (e.g., SUMMER20) *',
+                        filled: true,
+                        fillColor: theme.scaffoldBackgroundColor,
+                        border: const OutlineInputBorder(),
                       ),
-                      DropdownMenuItem(
-                        value: 1,
-                        child: Text(
-                          'Flat Amount (\$)',
-                          style: TextStyle(color: theme.colorScheme.onSurface),
-                        ),
+                      validator: (v) => v!.isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<int>(
+                      value: type,
+                      dropdownColor: theme.cardColor,
+                      style: TextStyle(color: theme.colorScheme.onSurface),
+                      decoration: InputDecoration(
+                        labelText: 'Discount Type *',
+                        filled: true,
+                        fillColor: theme.scaffoldBackgroundColor,
+                        border: const OutlineInputBorder(),
                       ),
-                    ],
-                    onChanged: (v) => setModalState(() => type = v!),
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: valueCtrl,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
+                      items: [
+                        DropdownMenuItem(
+                          value: 0,
+                          child: Text(
+                            'Percentage (%)',
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 1,
+                          child: Text(
+                            'Flat Amount (\$)',
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                      ],
+                      onChanged: (v) => setModalState(() => type = v!),
                     ),
-                    style: TextStyle(color: theme.colorScheme.onSurface),
-                    decoration: InputDecoration(
-                      labelText: 'Discount Value *',
-                      filled: true,
-                      fillColor: theme.scaffoldBackgroundColor,
-                      border: const OutlineInputBorder(),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: valueCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      style: TextStyle(color: theme.colorScheme.onSurface),
+                      decoration: InputDecoration(
+                        labelText: 'Discount Value *',
+                        filled: true,
+                        fillColor: theme.scaffoldBackgroundColor,
+                        border: const OutlineInputBorder(),
+                      ),
+                      validator: (v) => v!.isEmpty ? 'Required' : null,
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             actions: [
@@ -133,8 +144,7 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
                 onPressed: _isSaving
                     ? null
                     : () async {
-                        if (codeCtrl.text.isNotEmpty &&
-                            valueCtrl.text.isNotEmpty) {
+                        if (formKey.currentState!.validate()) {
                           setModalState(() => _isSaving = true);
                           try {
                             await _repo.createPromotion({
@@ -179,6 +189,255 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
         },
       ),
     );
+  }
+
+  // --- NEW: Detailed Promo View & Update Modal ---
+  void _showPromoDetailsDialog(Map<String, dynamic> promo) {
+    final theme = Theme.of(context);
+    final formKey = GlobalKey<FormState>();
+    final codeCtrl = TextEditingController(text: promo['code']);
+    final valueCtrl = TextEditingController(
+      text: promo['discountValue'].toString(),
+    );
+
+    int type = promo['discountType'] ?? 0;
+    bool isActive = promo['isActive'] ?? true;
+
+    final createdAt =
+        DateTime.tryParse(promo['createdAt'] ?? '') ?? DateTime.now();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return AlertDialog(
+            backgroundColor: theme.cardColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Promotion Details',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.close, color: theme.colorScheme.onSurface),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ],
+            ),
+            content: Container(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Read-only Metadata
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: theme.primaryColor.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: theme.primaryColor.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'PROMO ID: ${promo['id'] ?? 'Unknown'}',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontFamily: 'monospace',
+                              color: theme.primaryColor,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Created: ${DateFormat('MMM dd, yyyy - hh:mm a').format(createdAt)}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.7,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Editable Fields
+                    TextFormField(
+                      controller: codeCtrl,
+                      style: TextStyle(color: theme.colorScheme.onSurface),
+                      decoration: InputDecoration(
+                        labelText: 'Promo Code *',
+                        filled: true,
+                        fillColor: theme.scaffoldBackgroundColor,
+                        border: const OutlineInputBorder(),
+                      ),
+                      validator: (v) => v!.isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<int>(
+                      value: type,
+                      dropdownColor: theme.cardColor,
+                      style: TextStyle(color: theme.colorScheme.onSurface),
+                      decoration: InputDecoration(
+                        labelText: 'Discount Type *',
+                        filled: true,
+                        fillColor: theme.scaffoldBackgroundColor,
+                        border: const OutlineInputBorder(),
+                      ),
+                      items: [
+                        DropdownMenuItem(
+                          value: 0,
+                          child: Text(
+                            'Percentage (%)',
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 1,
+                          child: Text(
+                            'Flat Amount (\$)',
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                      ],
+                      onChanged: (v) => setModalState(() => type = v!),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: valueCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      style: TextStyle(color: theme.colorScheme.onSurface),
+                      decoration: InputDecoration(
+                        labelText: 'Discount Value *',
+                        filled: true,
+                        fillColor: theme.scaffoldBackgroundColor,
+                        border: const OutlineInputBorder(),
+                      ),
+                      validator: (v) => v!.isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    SwitchListTile(
+                      title: Text(
+                        'Active Status',
+                        style: TextStyle(color: theme.colorScheme.onSurface),
+                      ),
+                      subtitle: Text(
+                        isActive
+                            ? 'Customers can use this code.'
+                            : 'This code is disabled.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
+                          ),
+                        ),
+                      ),
+                      value: isActive,
+                      activeColor: Colors.green,
+                      onChanged: (val) => setModalState(() => isActive = val),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () async {
+                  try {
+                    await _repo.deletePromotion(promo['id']);
+                    if (mounted) Navigator.pop(ctx);
+                    _loadPromos();
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text('Failed to delete promotion.'),
+                          backgroundColor: theme.colorScheme.error,
+                        ),
+                      );
+                    }
+                  }
+                },
+                child: const Text(
+                  'Delete',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+              FilledButton(
+                onPressed: _isSaving
+                    ? null
+                    : () async {
+                        if (formKey.currentState!.validate()) {
+                          setModalState(() => _isSaving = true);
+                          try {
+                            // Update call requires updatePromotion in AdminRepository
+                            await _repo.updatePromotion(promo['id'], {
+                              'code': codeCtrl.text.toUpperCase().trim(),
+                              'discountType': type,
+                              'discountValue':
+                                  double.tryParse(valueCtrl.text.trim()) ?? 0.0,
+                              'isActive': isActive,
+                            });
+                            if (mounted) Navigator.pop(ctx);
+                            _loadPromos();
+                          } catch (e) {
+                            setModalState(() => _isSaving = false);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text(
+                                    'Failed to update promotion.',
+                                  ),
+                                  backgroundColor: theme.colorScheme.error,
+                                ),
+                              );
+                            }
+                          }
+                        }
+                      },
+                child: _isSaving
+                    ? const SizedBox(
+                        height: 16,
+                        width: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Save Changes',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+              ),
+            ],
+          );
+        },
+      ),
+    ).then((_) {
+      // Ensure saving state is reset if dismissed
+      if (mounted) setState(() => _isSaving = false);
+    });
   }
 
   @override
@@ -226,26 +485,58 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
                           ),
                           itemBuilder: (ctx, i) {
                             final p = _promos[i];
+                            final isActive = p['isActive'] ?? true;
+
                             return ListTile(
+                              // NEW: Added onTap to show details
+                              onTap: () => _showPromoDetailsDialog(p),
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 24,
                                 vertical: 12,
                               ),
                               leading: CircleAvatar(
-                                backgroundColor: Colors.green.withValues(
-                                  alpha: 0.1,
-                                ),
-                                child: const Icon(
+                                backgroundColor: isActive
+                                    ? Colors.green.withValues(alpha: 0.1)
+                                    : theme.dividerColor.withValues(alpha: 0.3),
+                                child: Icon(
                                   Icons.local_offer,
-                                  color: Colors.green,
+                                  color: isActive
+                                      ? Colors.green
+                                      : theme.disabledColor,
                                 ),
                               ),
-                              title: Text(
-                                p['code'],
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: theme.colorScheme.onSurface,
-                                ),
+                              title: Row(
+                                children: [
+                                  Text(
+                                    p['code'] ?? 'UNKNOWN',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: isActive
+                                          ? theme.colorScheme.onSurface
+                                          : theme.disabledColor,
+                                      decoration: isActive
+                                          ? null
+                                          : TextDecoration.lineThrough,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  if (!isActive)
+                                    Chip(
+                                      label: const Text(
+                                        'Disabled',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: Colors.red,
+                                        ),
+                                      ),
+                                      backgroundColor: Colors.red.withValues(
+                                        alpha: 0.1,
+                                      ),
+                                      side: BorderSide.none,
+                                      padding: EdgeInsets.zero,
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                ],
                               ),
                               subtitle: Text(
                                 p['discountType'] == 0

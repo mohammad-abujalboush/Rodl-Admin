@@ -17,21 +17,46 @@ class StaffMemberModel {
   final bool isActive;
   final Map<String, String> documents;
 
+  // --- NEW: PAYROLL & COMPENSATION FIELDS ---
+  final int payrollType; // 0 = Hourly, 1 = Salaried
+  final double baseRate;
+  final double taxDeductionPercentage;
+
   StaffMemberModel.fromJson(Map<String, dynamic> json)
-    : id = json['id'].toString(),
-      fullName = json['fullName'] ?? 'Unknown',
-      email = json['email'] ?? '',
-      phoneNumber = json['phoneNumber'] ?? '',
-      role = json['role'] ?? 'Employee',
-      permissions = List<String>.from(json['permissions'] ?? []),
-      employeeNumber = json['employeeNumber'] ?? 'N/A',
-      department = json['department'] ?? 'General',
-      jobTitle = json['jobTitle'] ?? 'Staff',
-      isActive = json['isActive'] ?? true,
+    : id = (json['id'] ?? json['Id'] ?? '').toString(),
+      fullName = json['fullName'] ?? json['FullName'] ?? 'Unknown',
+      email = json['email'] ?? json['Email'] ?? '',
+      phoneNumber = json['phoneNumber'] ?? json['PhoneNumber'] ?? '',
+      role = json['role'] ?? json['Role'] ?? 'Employee',
+      permissions = List<String>.from(
+        json['permissions'] ?? json['Permissions'] ?? [],
+      ),
+      employeeNumber =
+          json['employeeNumber'] ?? json['EmployeeNumber'] ?? 'N/A',
+      department = json['department'] ?? json['Department'] ?? 'General',
+      jobTitle = json['jobTitle'] ?? json['JobTitle'] ?? 'Staff',
+      isActive = json['isActive'] ?? json['IsActive'] ?? true,
+      payrollType = ((json['payrollType'] ?? json['PayrollType'] ?? 0) as num)
+          .toInt(),
+      baseRate = ((json['baseRate'] ?? json['BaseRate'] ?? 0) as num)
+          .toDouble(),
+      taxDeductionPercentage =
+          ((json['taxDeductionPercentage'] ??
+                      json['TaxDeductionPercentage'] ??
+                      0)
+                  as num)
+              .toDouble(),
       documents = {
-        'Government ID': json['governmentIdUrl'] ?? '',
-        'Employment Contract': json['employmentContractUrl'] ?? '',
-        'NDA': json['nonDisclosureAgreementUrl'] ?? '',
+        'Government ID':
+            json['governmentIdUrl'] ?? json['GovernmentIdUrl'] ?? '',
+        'Employment Contract':
+            json['employmentContractUrl'] ??
+            json['EmploymentContractUrl'] ??
+            '',
+        'NDA':
+            json['nonDisclosureAgreementUrl'] ??
+            json['NonDisclosureAgreementUrl'] ??
+            '',
       };
 }
 

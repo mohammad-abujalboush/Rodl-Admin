@@ -19,15 +19,17 @@ class PayoutHistoryModel {
 
   factory PayoutHistoryModel.fromJson(Map<String, dynamic> json) {
     return PayoutHistoryModel(
-      payoutId: json['payoutId'] ?? '',
-      driverProfileId: json['driverProfileId'] ?? '',
-      driverName: json['driverName'] ?? 'Unknown Driver',
-      batchReference: json['batchReference'] ?? 'No Wire Ref',
-      totalAmount: (json['totalAmount'] ?? 0).toDouble(),
-      processedAt: DateTime.parse(
-        json['processedAt'] ?? DateTime.now().toIso8601String(),
-      ),
-      jobsIncluded: json['jobsIncluded'] ?? 0,
+      payoutId: json['payoutId'] ?? json['PayoutId'] ?? '',
+      driverProfileId: json['driverProfileId'] ?? json['DriverProfileId'] ?? '',
+      driverName: json['driverName'] ?? json['DriverName'] ?? 'Unknown Driver',
+      batchReference:
+          json['batchReference'] ?? json['BatchReference'] ?? 'No Wire Ref',
+      totalAmount: ((json['totalAmount'] ?? json['TotalAmount'] ?? 0) as num)
+          .toDouble(),
+      processedAt:
+          DateTime.tryParse(json['processedAt'] ?? json['ProcessedAt'] ?? '') ??
+          DateTime.now(),
+      jobsIncluded: json['jobsIncluded'] ?? json['JobsIncluded'] ?? 0,
     );
   }
 }

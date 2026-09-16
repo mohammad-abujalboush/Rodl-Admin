@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:html'
+    as html; // Used to trigger the native browser Print/Save to PDF dialog
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:responsive_builder/responsive_builder.dart';
@@ -13,6 +16,8 @@ class AuditLogsScreen extends StatefulWidget {
 
 class _AuditLogsScreenState extends State<AuditLogsScreen> {
   final DioClient _dioClient = sl<DioClient>();
+  final ScrollController _scrollController =
+      ScrollController(); // Added for horizontal scrolling
 
   List<dynamic> _logs = [];
   bool _isLoading = true;
@@ -29,6 +34,9 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
     'All',
     'JOB_FINANCIAL_FINALIZED',
     'ManualPriceOverride',
+    'Add Manual Payroll Adjustment',
+    'Toggle Earning Hold',
+    'Execute Batch Payroll',
     'Staff Account Suspended',
     'Staff Account Reactivated',
   ];
@@ -37,6 +45,12 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
   void initState() {
     super.initState();
     _fetchFilteredLogs();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchFilteredLogs() async {
@@ -100,7 +114,7 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor, // Light theme compliant
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(32.0),
@@ -317,147 +331,161 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
         side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.3)),
       ),
       clipBehavior: Clip.antiAlias,
-      child: SizedBox(
-        width: double.infinity,
-        child: SingleChildScrollView(
-          child: DataTable(
-            showCheckboxColumn: false,
-            headingRowColor: WidgetStateProperty.resolveWith(
-              (states) => theme.primaryColor.withValues(alpha: 0.05),
-            ),
-            dataRowMaxHeight: 70,
-            columns: [
-              DataColumn(
-                label: Text(
-                  'Timestamp',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onSurface,
+      child: Scrollbar(
+        controller: _scrollController,
+        thumbVisibility: true,
+        trackVisibility: true,
+        thickness: 8,
+        radius: const Radius.circular(8),
+        child: SizedBox(
+          width: double.infinity,
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 1000),
+              child: SingleChildScrollView(
+                child: DataTable(
+                  showCheckboxColumn: false,
+                  headingRowColor: WidgetStateProperty.resolveWith(
+                    (states) => theme.primaryColor.withValues(alpha: 0.05),
                   ),
-                ),
-              ),
-              DataColumn(
-                label: Text(
-                  'Actor / Trigger',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-              ),
-              DataColumn(
-                label: Text(
-                  'Action Type',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-              ),
-              DataColumn(
-                label: Text(
-                  'Target Entity',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-              ),
-              DataColumn(
-                label: Text(
-                  'Payload',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-              ),
-            ],
-            rows: _logs.map((log) {
-              final action = log['action'] ?? 'Unknown';
-              return DataRow(
-                cells: [
-                  DataCell(
-                    Text(
-                      log['timestamp'] ?? '',
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.7,
-                        ),
-                      ),
-                    ),
-                  ),
-                  DataCell(
-                    Row(
-                      children: [
-                        Icon(
-                          log['userEmail'].toString().contains('System')
-                              ? Icons.smart_toy
-                              : Icons.person,
-                          size: 16,
-                          color: theme.primaryColor,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          log['userEmail'] ?? 'Unknown',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  DataCell(
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _getActionColor(action).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        action,
+                  dataRowMaxHeight: 70,
+                  columns: [
+                    DataColumn(
+                      label: Text(
+                        'Timestamp',
                         style: TextStyle(
-                          color: _getActionColor(action),
                           fontWeight: FontWeight.bold,
-                          fontSize: 12,
+                          color: theme.colorScheme.onSurface,
                         ),
                       ),
                     ),
-                  ),
-                  DataCell(
-                    Text(
-                      log['entityName'] ?? '',
-                      style: TextStyle(color: theme.colorScheme.onSurface),
+                    DataColumn(
+                      label: Text(
+                        'Actor / Trigger',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
                     ),
-                  ),
-                  DataCell(
-                    log['details'] != null &&
-                            log['details'].toString().isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(
-                              Icons.data_object,
-                              color: Colors.blue,
-                            ),
-                            tooltip: 'View JSON Payload',
-                            onPressed: () =>
-                                _showPayloadDialog(log['details'], theme),
-                          )
-                        : Text(
-                            'No Data',
+                    DataColumn(
+                      label: Text(
+                        'Action Type',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                    ),
+                    DataColumn(
+                      label: Text(
+                        'Target Entity',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                    ),
+                    DataColumn(
+                      label: Text(
+                        'Dossier',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                    ),
+                  ],
+                  rows: _logs.map((log) {
+                    final action = log['action'] ?? 'Unknown';
+                    return DataRow(
+                      cells: [
+                        DataCell(
+                          Text(
+                            log['timestamp'] ?? '',
                             style: TextStyle(
                               color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.3,
+                                alpha: 0.7,
                               ),
                             ),
                           ),
-                  ),
-                ],
-              );
-            }).toList(),
+                        ),
+                        DataCell(
+                          Row(
+                            children: [
+                              Icon(
+                                log['userEmail'].toString().contains('System')
+                                    ? Icons.smart_toy
+                                    : Icons.person,
+                                size: 16,
+                                color: theme.primaryColor,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                log['userEmail'] ?? 'Unknown',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.colorScheme.onSurface,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        DataCell(
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _getActionColor(
+                                action,
+                              ).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              action,
+                              style: TextStyle(
+                                color: _getActionColor(action),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            log['entityName'] ?? '',
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          log['details'] != null &&
+                                  log['details'].toString().isNotEmpty
+                              ? FilledButton.tonalIcon(
+                                  icon: const Icon(Icons.visibility, size: 16),
+                                  label: const Text('View Record'),
+                                  onPressed: () =>
+                                      _showPayloadDialog(log, theme),
+                                )
+                              : Text(
+                                  'No Data Payload',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.3),
+                                  ),
+                                ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -508,8 +536,8 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
             trailing:
                 log['details'] != null && log['details'].toString().isNotEmpty
                 ? IconButton(
-                    icon: const Icon(Icons.data_object, color: Colors.blue),
-                    onPressed: () => _showPayloadDialog(log['details'], theme),
+                    icon: const Icon(Icons.visibility, color: Colors.blue),
+                    onPressed: () => _showPayloadDialog(log, theme),
                   )
                 : null,
           ),
@@ -518,57 +546,335 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
     );
   }
 
-  void _showPayloadDialog(String payload, ThemeData theme) {
+  // --- NEW: PDF-STYLE MODERN DOCUMENT VIEWER ---
+  void _showPayloadDialog(Map<String, dynamic> log, ThemeData theme) {
+    Map<String, dynamic> parsedDetails = {};
+
+    // Background parsing of the raw JSON string
+    try {
+      if (log['details'] != null && log['details'].toString().isNotEmpty) {
+        parsedDetails = jsonDecode(log['details']);
+      }
+    } catch (e) {
+      parsedDetails = {'Raw Data Dump': log['details'].toString()};
+    }
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: theme.cardColor,
-        title: Text(
-          'Audit Payload',
-          style: TextStyle(
-            color: theme.colorScheme.onSurface,
-            fontWeight: FontWeight.bold,
-          ),
+        backgroundColor: theme
+            .scaffoldBackgroundColor, // Uses the light background to look like paper
+        contentPadding: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.5)),
         ),
         content: Container(
-          width: 500,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: theme.scaffoldBackgroundColor,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: theme.dividerColor.withValues(alpha: 0.3),
-            ),
-          ),
-          child: SingleChildScrollView(
-            child: SelectableText(
-              payload,
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 13,
-                color: theme.colorScheme.onSurface,
+          width: 600,
+          constraints: const BoxConstraints(maxHeight: 800),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // HEADER (PDF Style)
+              Container(
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: theme.cardColor,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(16),
+                  ),
+                  border: Border(
+                    bottom: BorderSide(
+                      color: theme.dividerColor.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.verified_user,
+                              color: theme.primaryColor,
+                              size: 28,
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              'OFFICIAL AUDIT RECORD',
+                              style: TextStyle(
+                                color: theme.primaryColor,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 20,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Record ID: ${log['id']}',
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.6,
+                            ),
+                            fontSize: 12,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                        Text(
+                          'Timestamp: ${log['timestamp']}',
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.6,
+                            ),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        Icons.close,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
               ),
-            ),
+
+              // BODY METADATA
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Actor & Target Section
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'AUTHORIZED ACTOR',
+                                  style: _pdfHeaderStyle(theme),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  log['userEmail'] ?? 'Unknown User',
+                                  style: _pdfBodyStyle(theme),
+                                ),
+                                Text(
+                                  'IP: ${log['ipAddress'] ?? 'System Internal'}',
+                                  style: _pdfSubBodyStyle(theme),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'TARGET ENTITY',
+                                  style: _pdfHeaderStyle(theme),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  log['entityName'] ?? 'Unknown',
+                                  style: _pdfBodyStyle(theme),
+                                ),
+                                Text(
+                                  'Ref: ${log['entityId'] ?? 'N/A'}',
+                                  style: _pdfSubBodyStyle(theme),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Action Section
+                      Text('ACTION EXECUTED', style: _pdfHeaderStyle(theme)),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: _getActionColor(
+                            log['action'] ?? '',
+                          ).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: _getActionColor(
+                              log['action'] ?? '',
+                            ).withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Text(
+                          log['action'] ?? 'Unknown Action',
+                          style: TextStyle(
+                            color: _getActionColor(log['action'] ?? ''),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 48),
+
+                      // Data Payload Section (Clean Mapping)
+                      Text(
+                        'DATA PAYLOAD SUMMARY',
+                        style: _pdfHeaderStyle(theme),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: theme.dividerColor.withValues(alpha: 0.5),
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          children: parsedDetails.entries.map((entry) {
+                            final isLast =
+                                parsedDetails.entries.last.key == entry.key;
+                            return Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                border: isLast
+                                    ? null
+                                    : Border(
+                                        bottom: BorderSide(
+                                          color: theme.dividerColor.withValues(
+                                            alpha: 0.2,
+                                          ),
+                                        ),
+                                      ),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text(
+                                      entry.key,
+                                      style: TextStyle(
+                                        color: theme.colorScheme.onSurface
+                                            .withValues(alpha: 0.6),
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 3,
+                                    child: Text(
+                                      entry.value.toString(),
+                                      style: TextStyle(
+                                        color: theme.colorScheme.onSurface,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // FOOTER ACTIONS
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: theme.cardColor,
+                  borderRadius: const BorderRadius.vertical(
+                    bottom: Radius.circular(16),
+                  ),
+                  border: Border(
+                    top: BorderSide(
+                      color: theme.dividerColor.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Close Viewer'),
+                    ),
+                    const SizedBox(width: 16),
+                    FilledButton.icon(
+                      icon: const Icon(Icons.print),
+                      label: const Text('Print Record'),
+                      onPressed: () {
+                        // Natively triggers the Chrome/Web Print & Save to PDF dialog
+                        html.window.print();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close'),
-          ),
-        ],
       ),
     );
   }
 
+  TextStyle _pdfHeaderStyle(ThemeData theme) => TextStyle(
+    color: theme.primaryColor,
+    fontWeight: FontWeight.bold,
+    fontSize: 12,
+    letterSpacing: 1.2,
+  );
+
+  TextStyle _pdfBodyStyle(ThemeData theme) => TextStyle(
+    color: theme.colorScheme.onSurface,
+    fontWeight: FontWeight.bold,
+    fontSize: 16,
+  );
+
+  TextStyle _pdfSubBodyStyle(ThemeData theme) => TextStyle(
+    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+    fontFamily: 'monospace',
+    fontSize: 12,
+  );
+
   Color _getActionColor(String action) {
-    if (action.contains('FINANCIAL') || action.contains('Payment'))
+    if (action.contains('FINANCIAL') ||
+        action.contains('Payment') ||
+        action.contains('Execute Batch')) {
       return Colors.green;
+    }
     if (action.contains('Override') ||
         action.contains('Delete') ||
-        action.contains('Suspended'))
+        action.contains('Suspended')) {
       return Colors.red;
-    if (action.contains('Create') || action.contains('Add')) return Colors.blue;
+    }
+    if (action.contains('Create') ||
+        action.contains('Add') ||
+        action.contains('Reactivated')) {
+      return Colors.blue;
+    }
     return Colors.orange;
   }
 }

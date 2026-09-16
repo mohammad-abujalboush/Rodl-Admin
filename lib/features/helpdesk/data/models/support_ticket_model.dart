@@ -4,8 +4,8 @@ class SupportTicketModel {
   final String id;
   final String customerId;
   final String customerName;
-  final String customerPhone; // NEW
-  final String customerEmail; // NEW
+  final String customerPhone;
+  final String customerEmail;
   final String subject;
   final String description;
   final int status;
@@ -29,19 +29,22 @@ class SupportTicketModel {
 
   factory SupportTicketModel.fromJson(Map<String, dynamic> json) {
     return SupportTicketModel(
-      id: json['ticketId'] ?? '',
-      customerId: json['userId'] ?? '',
-      customerName: json['customerName'] ?? 'Guest Customer',
-      customerPhone: json['customerPhone'] ?? 'No Phone', // NEW
-      customerEmail: json['customerEmail'] ?? 'No Email', // NEW
-      subject: json['subject'] ?? 'No Subject',
-      description: json['description'] ?? '',
-      status: json['status'] ?? 0,
-      priority: json['priority'] ?? 1,
-      createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'])
-          : DateTime.now(),
-      adminNotes: json['adminNotes'],
+      id: (json['ticketId'] ?? json['TicketId'] ?? '').toString(),
+      customerId: (json['userId'] ?? json['UserId'] ?? '').toString(),
+      customerName:
+          json['customerName'] ?? json['CustomerName'] ?? 'Guest Customer',
+      customerPhone:
+          json['customerPhone'] ?? json['CustomerPhone'] ?? 'No Phone',
+      customerEmail:
+          json['customerEmail'] ?? json['CustomerEmail'] ?? 'No Email',
+      subject: json['subject'] ?? json['Subject'] ?? 'No Subject',
+      description: json['description'] ?? json['Description'] ?? '',
+      status: ((json['status'] ?? json['Status'] ?? 0) as num).toInt(),
+      priority: ((json['priority'] ?? json['Priority'] ?? 1) as num).toInt(),
+      createdAt:
+          DateTime.tryParse(json['createdAt'] ?? json['CreatedAt'] ?? '') ??
+          DateTime.now(),
+      adminNotes: json['adminNotes'] ?? json['AdminNotes'],
     );
   }
 

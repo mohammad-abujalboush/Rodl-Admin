@@ -33,7 +33,8 @@ class SystemKpiModel {
       activeTows: json['activeTows'] ?? 0,
       slaBreaches: json['slaBreaches'] ?? 0,
       onlineFleet: json['onlineFleet'] ?? 0,
-      totalRevenue: (json['totalRevenue'] ?? 0).toDouble(),
+      totalRevenue: ((json['totalRevenue'] ?? json['TotalRevenue'] ?? 0) as num)
+          .toDouble(),
       averageTicketSize: (json['averageTicketSize'] ?? 0).toDouble(),
       cancellationRate: (json['cancellationRate'] ?? 0).toDouble(),
       averageWaitTimeMinutes: json['averageWaitTimeMinutes'] ?? 0,

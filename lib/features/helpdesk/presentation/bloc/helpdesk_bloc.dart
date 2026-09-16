@@ -52,6 +52,13 @@ class CreateManualTicket extends HelpdeskEvent {
   ];
 }
 
+class DeleteTicket extends HelpdeskEvent {
+  final String ticketId;
+  DeleteTicket({required this.ticketId});
+  @override
+  List<Object> get props => [ticketId];
+}
+
 // --- STATES ---
 abstract class HelpdeskState extends Equatable {
   @override
@@ -151,6 +158,24 @@ class HelpdeskBloc extends Bloc<HelpdeskEvent, HelpdeskState> {
         }
       } catch (e) {
         emit(HelpdeskError('Failed to create manual ticket.'));
+      }
+    });
+
+    on<DeleteTicket>((event, emit) async {
+      try {
+        final response = await dioClient.dio.delete(
+          '/api/admin/tickets/${event.ticketId}',
+        );
+        if (response.statusCode == 200) {
+          emit(HelpdeskActionSuccess('Ticket permanently purged.'));
+          add(FetchTickets());
+        }
+      } catch (e) {
+        emit(
+          HelpdeskError(
+            'Failed to delete ticket. Does the backend route exist?',
+          ),
+        );
       }
     });
   }

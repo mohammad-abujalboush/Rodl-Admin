@@ -230,7 +230,6 @@ class _HelpdeskScreenState extends State<HelpdeskScreen> {
     );
   }
 
-  // --- INTERACTIVE DRAG & DROP KANBAN BOARD ---
   Widget _buildKanbanBoard(
     List<SupportTicketModel> tickets,
     ThemeData theme,
@@ -307,7 +306,7 @@ class _HelpdeskScreenState extends State<HelpdeskScreen> {
     Color color,
     BuildContext blocContext,
   ) {
-    return Container(
+    return SizedBox(
       width: 280,
       child: DragTarget<SupportTicketModel>(
         onWillAcceptWithDetails: (details) =>
@@ -613,7 +612,6 @@ class _HelpdeskScreenState extends State<HelpdeskScreen> {
   }
 }
 
-// --- DRAGGABLE TICKET WIDGET ---
 class _DraggableTicketCard extends StatelessWidget {
   final SupportTicketModel ticket;
   final BuildContext blocContext;
@@ -767,12 +765,27 @@ class _DraggableTicketCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                        IconButton(
-                          icon: Icon(
-                            Icons.close,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                          onPressed: () => Navigator.pop(ctx),
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              tooltip: 'Delete Ticket',
+                              onPressed: () {
+                                _showDeleteConfirmation(
+                                  ctx,
+                                  blocContext,
+                                  ticket,
+                                );
+                              },
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                Icons.close,
+                                color: theme.colorScheme.onSurface,
+                              ),
+                              onPressed: () => Navigator.pop(ctx),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -1084,6 +1097,46 @@ class _DraggableTicketCard extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+
+  void _showDeleteConfirmation(
+    BuildContext ctx,
+    BuildContext blocContext,
+    SupportTicketModel ticket,
+  ) {
+    showDialog(
+      context: ctx,
+      builder: (confirmCtx) => AlertDialog(
+        backgroundColor: Theme.of(ctx).scaffoldBackgroundColor,
+        title: Text(
+          'Delete Ticket',
+          style: TextStyle(color: Theme.of(ctx).colorScheme.onSurface),
+        ),
+        content: Text(
+          'Are you sure you want to permanently delete ticket #${ticket.id.substring(0, 6).toUpperCase()}? This action cannot be undone.',
+          style: TextStyle(
+            color: Theme.of(ctx).colorScheme.onSurface.withValues(alpha: 0.8),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(confirmCtx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              blocContext.read<HelpdeskBloc>().add(
+                DeleteTicket(ticketId: ticket.id),
+              );
+              Navigator.pop(confirmCtx); // Close confirm
+              Navigator.pop(ctx); // Close detail modal
+            },
+            child: const Text('Delete'),
+          ),
+        ],
       ),
     );
   }

@@ -13,11 +13,12 @@ class DriverPayoutDetailModel {
 
   factory DriverPayoutDetailModel.fromJson(Map<String, dynamic> json) {
     return DriverPayoutDetailModel(
-      driverProfileId: json['driverProfileId'] ?? '',
-      driverName: json['driverName'] ?? 'Unknown Driver',
-      totalNetOwed: (json['totalNetOwed'] ?? 0).toDouble(),
+      driverProfileId: json['driverProfileId'] ?? json['DriverProfileId'] ?? '',
+      driverName: json['driverName'] ?? json['DriverName'] ?? 'Unknown Driver',
+      totalNetOwed: ((json['totalNetOwed'] ?? json['TotalNetOwed'] ?? 0) as num)
+          .toDouble(),
       lineItems:
-          (json['lineItems'] as List<dynamic>?)
+          ((json['lineItems'] ?? json['LineItems']) as List<dynamic>?)
               ?.map((item) => EarningLineItemModel.fromJson(item))
               .toList() ??
           [],
@@ -48,16 +49,19 @@ class EarningLineItemModel {
 
   factory EarningLineItemModel.fromJson(Map<String, dynamic> json) {
     return EarningLineItemModel(
-      earningId: json['earningId'] ?? '',
-      serviceRequestId: json['serviceRequestId'],
-      description: json['description'] ?? 'Adjustment',
-      grossAmount: (json['grossAmount'] ?? 0).toDouble(),
-      platformFee: (json['platformFee'] ?? 0).toDouble(),
-      netPayout: (json['netPayout'] ?? 0).toDouble(),
-      createdAt: DateTime.parse(
-        json['createdAt'] ?? DateTime.now().toIso8601String(),
-      ),
-      isOnHold: json['isOnHold'] ?? false,
+      earningId: json['earningId'] ?? json['EarningId'] ?? '',
+      serviceRequestId: json['serviceRequestId'] ?? json['ServiceRequestId'],
+      description: json['description'] ?? json['Description'] ?? 'Adjustment',
+      grossAmount: ((json['grossAmount'] ?? json['GrossAmount'] ?? 0) as num)
+          .toDouble(),
+      platformFee: ((json['platformFee'] ?? json['PlatformFee'] ?? 0) as num)
+          .toDouble(),
+      netPayout: ((json['netPayout'] ?? json['NetPayout'] ?? 0) as num)
+          .toDouble(),
+      createdAt:
+          DateTime.tryParse(json['createdAt'] ?? json['CreatedAt'] ?? '') ??
+          DateTime.now(),
+      isOnHold: json['isOnHold'] ?? json['IsOnHold'] ?? false,
     );
   }
 }
