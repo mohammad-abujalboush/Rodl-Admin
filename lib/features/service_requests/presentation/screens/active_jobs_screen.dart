@@ -288,7 +288,7 @@ class _ActiveJobsScreenState extends State<ActiveJobsScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'God-mode control over active incidents, financials, and fleet assignments.',
+              'Admin control over active incidents, financials, and fleet assignments.',
               style: TextStyle(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
@@ -683,7 +683,7 @@ class _ActiveJobsScreenState extends State<ActiveJobsScreen> {
                 FilledButton.tonal(
                   onPressed: () =>
                       _showJobDetailsModal(context, job, fleet, theme),
-                  child: const Text('God Mode'),
+                  child: const Text('Manage'),
                 ),
               ],
             ),
@@ -1677,7 +1677,7 @@ class _AdvancedDispatchWizardState extends State<_AdvancedDispatchWizard> {
 }
 
 // ============================================================================
-// GOD MODE MODAL (Command Center)
+// ADMIN MODE MODAL (Command Center)
 // ============================================================================
 class _CommandCenterModal extends StatefulWidget {
   final ActiveJobModel job;
@@ -1758,7 +1758,7 @@ class _CommandCenterModalState extends State<_CommandCenterModal>
       ? s
       : 1;
 
-  // --- ULTIMATE GOD-MODE ADDON CATALOG ---
+  // --- ULTIMATE ADMIN-MODE ADDON CATALOG ---
   // Exhaustive list covering all possible towing, recovery, and roadside scenarios.
   List<Map<String, dynamic>> _getAddonCatalog(int serviceType) {
     return [
